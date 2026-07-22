@@ -28,8 +28,7 @@ class UserResponse(UserBase):
     teacher_id: str | None = None
     admin_id: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class UserUpdate(BaseModel):
@@ -77,8 +76,7 @@ class StudentProfileResponse(BaseModel):
     ka_student_id: str | None = None
     is_active: bool
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class TeacherProfileUpdate(BaseModel):
@@ -102,8 +100,7 @@ class TeacherProfileResponse(BaseModel):
     experience_years: float | None = None
     is_active: bool
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class AdminProfileUpdate(BaseModel):
@@ -122,5 +119,4 @@ class AdminProfileResponse(BaseModel):
     is_super_admin: bool
     is_active: bool
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}

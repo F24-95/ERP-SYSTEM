@@ -36,8 +36,7 @@ class StudentIDCardResponse(BaseModel):
     qr_code_path: str | None = None
     pdf_path: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class StudentIDCardDownloadResponse(BaseModel):

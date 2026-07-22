@@ -7,8 +7,7 @@ class BaseResponse(BaseModel):
     id: int
     is_active: bool | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 # ===========================
@@ -62,8 +61,7 @@ class KaSubjectProgressResponse(BaseModel):
     percentage_earned: float
     snapshot_date: date
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class KaTopicProgressIngest(BaseModel):
@@ -87,8 +85,7 @@ class KaTopicProgressResponse(BaseModel):
     percentage_earned: float
     snapshot_date: date
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class StudentKaProgressSummaryResponse(BaseModel):
@@ -135,8 +132,7 @@ class KaStudentActivityResponse(BaseModel):
     minutes: int
     minutes_target_status: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class KaSubjectActivityIngest(BaseModel):
@@ -155,8 +151,7 @@ class KaSubjectActivityResponse(BaseModel):
     study_material_id: int | None = None
     activity_date: date
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class StudentKaActivitySummaryResponse(BaseModel):

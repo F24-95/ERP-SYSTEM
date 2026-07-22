@@ -40,8 +40,7 @@ class ZoomFileResponse(ZoomFileBase):
     zoom_file_code: str
     is_active: bool | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 # ===========================
@@ -73,5 +72,4 @@ class ZoomMeetingResponse(BaseModel):
     recording_count: int | None = None
     share_url: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}

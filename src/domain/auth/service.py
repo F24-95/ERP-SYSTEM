@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -49,7 +49,7 @@ class AuthService:
             db,
             {
                 "jti": jti,
-                "expires_at": datetime.utcfromtimestamp(exp),
+                "expires_at": datetime.fromtimestamp(exp, tz=timezone.utc).replace(tzinfo=None),
             },
         )
 
@@ -154,7 +154,7 @@ class AuthService:
                 db,
                 {
                     "jti": jti,
-                    "expires_at": datetime.utcfromtimestamp(payload["exp"]),
+                    "expires_at": datetime.fromtimestamp(payload["exp"], tz=timezone.utc).replace(tzinfo=None),
                 },
             )
         logger.info(f"Password reset completed for user id={user.id}")
@@ -175,7 +175,7 @@ class AuthService:
                 "user_id": user.id,
                 "code_hash": hash_password(code),
                 "purpose": purpose,
-                "expires_at": datetime.utcnow() + timedelta(minutes=OTP_EXPIRE_MINUTES),
+                "expires_at": datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=OTP_EXPIRE_MINUTES),
                 "is_used": False,
             },
         )
@@ -220,7 +220,7 @@ class AuthService:
             raise AuthenticationException(
                 "No active OTP found. Please request a new one.",
             )
-        if datetime.utcnow() > otp.expires_at:
+        if datetime.now(timezone.utc).replace(tzinfo=None) > otp.expires_at:
             raise AuthenticationException("OTP has expired. Please request a new one.")
         if not verify_password(code, otp.code_hash):
             raise AuthenticationException("Invalid OTP")

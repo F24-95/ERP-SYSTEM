@@ -1,7 +1,7 @@
 import os
 import secrets
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import bcrypt
@@ -32,7 +32,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     # jti (unique token id) lets a specific issued token be revoked on
     # logout without needing to invalidate every token for the user --
     # see src/domain/auth/models.py::RevokedToken.
@@ -42,7 +42,7 @@ def create_access_token(data: dict) -> str:
 
 def create_refresh_token(data: dict) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(days=7)
+    expire = datetime.now(timezone.utc) + timedelta(days=7)
     to_encode.update({"exp": expire, "jti": str(uuid.uuid4())})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -93,7 +93,7 @@ def create_purpose_token(user_id: int, purpose: str, expires_minutes: int) -> st
     RevokedToken immediately after it's consumed (see AuthService.reset_password).
     """
     payload = {"sub": str(user_id), "purpose": purpose}
-    expire = datetime.utcnow() + timedelta(minutes=expires_minutes)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
     payload.update({"exp": expire, "jti": str(uuid.uuid4())})
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 

@@ -1,6 +1,7 @@
 import os
 import time
 import uuid
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 
@@ -122,8 +123,8 @@ def create_app() -> FastAPI:
     app.add_exception_handler(BaseDomainException, global_exception_handler)
     app.add_exception_handler(Exception, global_exception_handler)
 
-    @app.on_event("startup")
-    async def startup_event():
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
         logger.info("Starting up Modern School ERP API")
         # No Alembic migrations existed in this project at all (no
         # alembic/versions/, no script.py.mako) — meaning a fresh DB had
@@ -168,11 +169,11 @@ def create_app() -> FastAPI:
                 "Could not check for an existing admin account at startup",
                 exc_info=True,
             )
-
-    @app.on_event("shutdown")
-    async def shutdown_event():
+        yield
         logger.info("Shutting down Modern School ERP API")
         await engine.dispose()
+
+    app.router.lifespan_context = lifespan
 
     @app.get("/health", tags=["System"])
     async def health_check():

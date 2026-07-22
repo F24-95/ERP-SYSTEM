@@ -8,8 +8,7 @@ class BaseResponse(BaseModel):
     id: int
     is_active: bool | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 # ===========================
@@ -94,8 +93,7 @@ class StudentPromotionHistoryResponse(BaseModel):
     remarks: str | None = None
     promoted_by_user_id: int | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 # ===========================
@@ -170,8 +168,7 @@ class DailyClassStudentResponse(DailyClassStudentBase):
     marked_by: int | None = None
     marked_at: datetime | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 # ===========================
@@ -185,8 +182,7 @@ class StudentAttendanceResponse(BaseModel):
     absent_classes: int = 0
     attendance_percentage: float = 0.0
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 # ===========================
@@ -351,5 +347,4 @@ class TeacherTimetableItemResponse(BaseModel):
     day: str
     time: str
 
-    class Config:
-        populate_by_name = True
+    model_config = {"populate_by_name": True}

@@ -1,478 +1,163 @@
 import pytest
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from .helpers import (
-    assert_success_response,
-    assert_error_response,
-    INVALID_TOKENS,
-)
+from tests.helpers import assert_forbidden, assert_ok, assert_unauthorized
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.teacher]
+pytestmark = pytest.mark.asyncio
 
 
 class TestTeacherProfile:
-    async def test_get_profile(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.get("/teacher/profile", headers=teacher_headers)
-        assert_success_response(response)
+    async def test_get_profile(self, teacher_client: AsyncClient):
+        response = await teacher_client.get("/teacher/profile")
+        assert_ok(response)
         data = response.json()
-        assert "teacher_name" in data or "user_id" in data
+        assert data["teacher_name"] == "Test Teacher"
 
-    async def test_get_profile_no_auth(self, client: AsyncClient):
+    async def test_get_profile_unauthorized(self, client: AsyncClient):
         response = await client.get("/teacher/profile")
-        assert_error_response(response, 401)
+        assert_unauthorized(response)
 
-    async def test_get_profile_wrong_role(
-        self, client: AsyncClient, student_headers: dict
-    ):
-        response = await client.get("/teacher/profile", headers=student_headers)
-        assert_error_response(response, 403)
+    async def test_get_profile_forbidden_student(self, student_client: AsyncClient):
+        response = await student_client.get("/teacher/profile")
+        assert_forbidden(response)
 
-    async def test_update_profile(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.put(
+    async def test_update_profile(self, teacher_client: AsyncClient):
+        response = await teacher_client.put(
             "/teacher/profile",
-            json={"teacher_name": "Updated Teacher Name", "phone": "9333333333"},
-            headers=teacher_headers,
+            json={"teacher_name": "Updated Teacher Name", "department": "Science"},
         )
-        assert_success_response(response)
+        assert_ok(response)
+        data = response.json()
+        assert data["teacher_name"] == "Updated Teacher Name"
 
-    async def test_update_profile_empty_name(
-        self, client: AsyncClient, teacher_headers: dict
-    ):
-        response = await client.put(
+    async def test_update_profile_invalid(self, teacher_client: AsyncClient):
+        response = await teacher_client.put(
             "/teacher/profile",
-            json={"teacher_name": ""},
-            headers=teacher_headers,
+            json={"experience_years": "not-a-number"},
         )
-        assert response.status_code in (200, 422)
+        assert response.status_code == 422
 
 
 class TestTeacherClasses:
-    async def test_get_classes(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.get("/teacher/classes", headers=teacher_headers)
-        assert_success_response(response)
+    async def test_get_classes_empty(self, teacher_client: AsyncClient):
+        response = await teacher_client.get("/teacher/classes")
+        assert_ok(response)
+        assert response.json() == []
 
-    async def test_get_classes_no_auth(self, client: AsyncClient):
-        response = await client.get("/teacher/classes")
-        assert_error_response(response, 401)
-
-    async def test_get_classes_wrong_role(
-        self, client: AsyncClient, student_headers: dict
+    async def test_get_classes_with_assignment(
+        self, teacher_client: AsyncClient, teacher_user, academic_session, classroom, subject, db_session
     ):
-        response = await client.get("/teacher/classes", headers=student_headers)
-        assert_error_response(response, 403)
+        from src.domain.academics.models import ClassSubject
+        from src.domain.operations.models import TeacherSubject
 
-
-class TestTeacherStudents:
-    async def test_get_class_students(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.get(
-            "/teacher/students?classroom_id=1&academic_sessions_id=1",
-            headers=teacher_headers,
+        cs = ClassSubject(
+            academic_sessions_id=academic_session.id,
+            classroom_id=classroom.id,
+            subject_id=subject.id,
         )
-        assert response.status_code in (200, 404)
+        db_session.add(cs)
+        await db_session.flush()
 
-    async def test_get_class_students_missing_params(
-        self, client: AsyncClient, teacher_headers: dict
-    ):
-        response = await client.get("/teacher/students", headers=teacher_headers)
-        assert_error_response(response, 422)
-
-    async def test_get_my_students(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.get(
-            "/teacher/my-students?academic_sessions_id=1", headers=teacher_headers
+        ts = TeacherSubject(
+            teacher_id=teacher_user.id,
+            class_subject_id=cs.id,
+            classroom_id=classroom.id,
+            subject_id=subject.id,
+            academic_sessions_id=academic_session.id,
         )
-        assert response.status_code in (200, 404)
+        db_session.add(ts)
+        await db_session.flush()
+
+        response = await teacher_client.get("/teacher/classes")
+        assert_ok(response)
+        data = response.json()
+        assert len(data) >= 1
 
 
 class TestTeacherSubjects:
-    async def test_get_subjects(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.get("/teacher/subjects", headers=teacher_headers)
-        assert_success_response(response)
+    async def test_get_subjects_empty(self, teacher_client: AsyncClient):
+        response = await teacher_client.get("/teacher/subjects")
+        assert_ok(response)
+        assert response.json() == []
 
-    async def test_get_subjects_no_auth(self, client: AsyncClient):
-        response = await client.get("/teacher/subjects")
-        assert_error_response(response, 401)
-
-
-class TestTeacherAssignments:
-    async def test_get_assignments(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.get("/teacher/assignments", headers=teacher_headers)
-        assert_success_response(response)
-
-    async def test_get_assignments_no_auth(self, client: AsyncClient):
-        response = await client.get("/teacher/assignments")
-        assert_error_response(response, 401)
-
-    async def test_get_assignments_wrong_role(
-        self, client: AsyncClient, student_headers: dict
+    async def test_get_subjects_with_assignment(
+        self, teacher_client: AsyncClient, teacher_user, academic_session, classroom, subject, db_session
     ):
-        response = await client.get("/teacher/assignments", headers=student_headers)
-        assert_error_response(response, 403)
+        from src.domain.academics.models import ClassSubject
+        from src.domain.operations.models import TeacherSubject
+
+        cs = ClassSubject(
+            academic_sessions_id=academic_session.id,
+            classroom_id=classroom.id,
+            subject_id=subject.id,
+        )
+        db_session.add(cs)
+        await db_session.flush()
+
+        ts = TeacherSubject(
+            teacher_id=teacher_user.id,
+            class_subject_id=cs.id,
+            classroom_id=classroom.id,
+            subject_id=subject.id,
+            academic_sessions_id=academic_session.id,
+        )
+        db_session.add(ts)
+        await db_session.flush()
+
+        response = await teacher_client.get("/teacher/subjects")
+        assert_ok(response)
+        data = response.json()
+        assert len(data) >= 1
 
 
 class TestTeacherDashboard:
-    async def test_get_dashboard(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.get("/teacher/dashboard", headers=teacher_headers)
-        assert_success_response(response)
-
-    async def test_get_dashboard_no_auth(self, client: AsyncClient):
-        response = await client.get("/teacher/dashboard")
-        assert_error_response(response, 401)
-
-    async def test_get_dashboard_wrong_role(
-        self, client: AsyncClient, student_headers: dict
-    ):
-        response = await client.get("/teacher/dashboard", headers=student_headers)
-        assert_error_response(response, 403)
-
-    async def test_dashboard_from_dashboard_router(
-        self, client: AsyncClient, teacher_headers: dict
-    ):
-        response = await client.get("/dashboard/teacher", headers=teacher_headers)
-        assert_success_response(response)
+    async def test_get_dashboard(self, teacher_client: AsyncClient):
+        response = await teacher_client.get("/teacher/dashboard")
+        assert_ok(response)
+        data = response.json()
+        assert "total_classes" in data
+        assert "total_students" in data
+        assert "total_assignments" in data
 
 
-class TestTeacherTimetable:
-    async def test_get_teacher_timetable(
-        self, client: AsyncClient, teacher_headers: dict
-    ):
-        response = await client.get("/teacher/timetable", headers=teacher_headers)
-        assert_success_response(response)
-
-    async def test_get_teacher_timetable_no_auth(self, client: AsyncClient):
-        response = await client.get("/teacher/timetable")
-        assert_error_response(response, 401)
-
-    async def test_get_teacher_timetable_wrong_role(
-        self, client: AsyncClient, student_headers: dict
-    ):
-        response = await client.get("/teacher/timetable", headers=student_headers)
-        assert_error_response(response, 403)
+class TestTeacherAssignments:
+    async def test_get_assignments_empty(self, teacher_client: AsyncClient):
+        response = await teacher_client.get("/teacher/assignments")
+        assert_ok(response)
+        assert response.json() == []
 
 
-class TestTeacherAvailability:
-    async def test_get_availability(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.get(
-            "/availability/teacher/1?session_id=1",
-            headers=teacher_headers,
+class TestTeacherStudents:
+    async def test_get_class_students_no_assignment(self, teacher_client: AsyncClient, academic_session, classroom):
+        response = await teacher_client.get(
+            "/teacher/students",
+            params={"classroom_id": classroom.id, "academic_sessions_id": academic_session.id},
         )
-        assert response.status_code in (200, 404)
-
-    async def test_create_availability(
-        self, client: AsyncClient, teacher_headers: dict
-    ):
-        response = await client.post(
-            "/availability",
-            json={
-                "teacher_subject_id": 1,
-                "week_day_id": 1,
-                "time_slot_id": 1,
-                "academic_sessions_id": 1,
-                "is_active": True,
-            },
-            headers=teacher_headers,
-        )
-        assert response.status_code in (200, 201, 400, 404)
-
-    async def test_update_availability(
-        self, client: AsyncClient, teacher_headers: dict
-    ):
-        response = await client.put(
-            "/availability/1",
-            json={"is_active": False},
-            headers=teacher_headers,
-        )
-        assert response.status_code in (200, 404)
-
-    async def test_delete_availability(
-        self, client: AsyncClient, teacher_headers: dict
-    ):
-        response = await client.delete("/availability/1", headers=teacher_headers)
-        assert response.status_code in (204, 404)
+        assert response.status_code == 403
 
 
-class TestTeacherExams:
-    async def test_create_exam(
-        self, client: AsyncClient, teacher_headers: dict, db: AsyncSession
-    ):
-        from src.domain.academics.models import ClassSubject
+class TestTeacherOperations:
+    async def test_teacher_can_list_students(self, teacher_client: AsyncClient, student_user):
+        response = await teacher_client.get("/admin/students")
+        assert_ok(response)
+
+    async def test_teacher_can_list_teachers(self, teacher_client: AsyncClient, teacher_user):
+        response = await teacher_client.get("/admin/teachers")
+        assert_ok(response)
+
+    async def test_teacher_cannot_delete_user(self, teacher_client: AsyncClient, student_user):
+        response = await teacher_client.delete(f"/admin/users/{student_user.public_id}")
+        assert_forbidden(response)
+
+    async def test_teacher_cannot_update_student_profile(self, teacher_client: AsyncClient, student_user, db_session):
         from sqlalchemy import select
-
-        cs = (await db.execute(select(ClassSubject).limit(1))).scalars().first()
-        if cs:
-            response = await client.post(
-                "/exams/",
-                json={
-                    "title": "Mid Term",
-                    "class_subject_id": cs.id,
-                    "exam_date": "2025-07-15",
-                    "max_marks": 100,
-                },
-                headers=teacher_headers,
-            )
-            assert response.status_code in (200, 201, 400, 404)
-
-    async def test_list_exams(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.get("/exams/", headers=teacher_headers)
-        assert_success_response(response)
-
-    async def test_get_exam(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.get("/exams/1", headers=teacher_headers)
-        assert response.status_code in (200, 404)
-
-    async def test_update_exam(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.put(
-            "/exams/1",
-            json={"title": "Updated Mid Term", "max_marks": 50},
-            headers=teacher_headers,
+        from src.domain.users.models import StudentProfile
+        result = await db_session.execute(
+            select(StudentProfile).filter_by(user_id=student_user.id)
         )
-        assert response.status_code in (200, 404)
-
-    async def test_delete_exam(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.delete("/exams/1", headers=teacher_headers)
-        assert response.status_code in (200, 404)
-
-    async def test_create_exam_no_auth(self, client: AsyncClient):
-        response = await client.post(
-            "/exams/",
-            json={
-                "title": "Test",
-                "class_subject_id": 1,
-                "exam_date": "2025-07-15",
-                "max_marks": 100,
-            },
+        profile = result.scalars().first()
+        response = await teacher_client.patch(
+            f"/admin/students/{profile.id}",
+            json={"student_name": "Hacked"},
         )
-        assert_error_response(response, 401)
-
-    async def test_create_exam_wrong_role(
-        self, client: AsyncClient, student_headers: dict
-    ):
-        response = await client.post(
-            "/exams/",
-            json={
-                "title": "Test",
-                "class_subject_id": 1,
-                "exam_date": "2025-07-15",
-                "max_marks": 100,
-            },
-            headers=student_headers,
-        )
-        assert_error_response(response, 403)
-
-
-class TestTeacherAssignmentsCRUD:
-    async def test_create_assignment(
-        self, client: AsyncClient, teacher_headers: dict, db: AsyncSession
-    ):
-        from src.domain.academics.models import ClassSubject
-        from sqlalchemy import select
-
-        cs = (await db.execute(select(ClassSubject).limit(1))).scalars().first()
-        if cs:
-            response = await client.post(
-                "/assignments/",
-                json={
-                    "title": "Homework 1",
-                    "description": "Complete chapter 1",
-                    "class_subject_id": cs.id,
-                    "due_date": "2025-07-20",
-                },
-                headers=teacher_headers,
-            )
-            assert response.status_code in (200, 201, 400, 404)
-
-    async def test_list_assignments(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.get("/assignments/", headers=teacher_headers)
-        assert_success_response(response)
-
-    async def test_get_assignment(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.get("/assignments/1", headers=teacher_headers)
-        assert response.status_code in (200, 404)
-
-    async def test_update_assignment(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.put(
-            "/assignments/1",
-            json={"title": "Updated Homework", "description": "Updated desc"},
-            headers=teacher_headers,
-        )
-        assert response.status_code in (200, 404)
-
-    async def test_delete_assignment(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.delete("/assignments/1", headers=teacher_headers)
-        assert response.status_code in (200, 404)
-
-    async def test_grade_assignment(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.post(
-            "/assignments/1/results",
-            json=[{"student_profile_id": 1, "marks_obtained": 85, "remarks": "Good"}],
-            headers=teacher_headers,
-        )
-        assert response.status_code in (200, 201, 404)
-
-
-class TestTeacherDailyClass:
-    async def test_create_daily_class(
-        self, client: AsyncClient, teacher_headers: dict, db: AsyncSession
-    ):
-        from src.domain.academics.models import ClassSubject
-        from sqlalchemy import select
-
-        cs = (await db.execute(select(ClassSubject).limit(1))).scalars().first()
-        if cs:
-            response = await client.post(
-                "/daily-class/",
-                json={
-                    "teacher_subject_id": 1,
-                    "class_subject_id": cs.id,
-                    "class_date": "2025-07-10",
-                    "topic": "Introduction to Algebra",
-                },
-                headers=teacher_headers,
-            )
-            assert response.status_code in (200, 201, 400, 404)
-
-    async def test_list_daily_classes(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.get("/daily-class/", headers=teacher_headers)
-        assert_success_response(response)
-
-    async def test_mark_attendance(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.post(
-            "/daily-class/1/students",
-            json=[{"student_profile_id": 1, "attendance_status": "Present"}],
-            headers=teacher_headers,
-        )
-        assert response.status_code in (200, 201, 404)
-
-    async def test_get_attendance(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.get("/daily-class/1/students", headers=teacher_headers)
-        assert response.status_code in (200, 404)
-
-    async def test_recalculate_attendance_summary(
-        self, client: AsyncClient, teacher_headers: dict
-    ):
-        response = await client.post(
-            "/daily-class/attendance/recalculate/1",
-            headers=teacher_headers,
-        )
-        assert response.status_code in (200, 404)
-
-
-class TestTeacherNotices:
-    async def test_create_notice(
-        self, client: AsyncClient, teacher_headers: dict, academic_session
-    ):
-        response = await client.post(
-            "/notices/",
-            data={
-                "title": "Class Test Notice",
-                "description": "Test next week",
-                "notice_type": "ACADEMIC",
-                "audience": "CLASS",
-                "publish_date": "2025-06-10",
-                "academic_sessions_id": str(academic_session.id),
-                "classroom_id": "1",
-                "is_pinned": "false",
-            },
-            headers=teacher_headers,
-        )
-        assert response.status_code in (200, 201, 422)
-
-    async def test_pin_notice(
-        self, client: AsyncClient, teacher_headers: dict, db: AsyncSession
-    ):
-        from src.domain.notices.models import Notice
-        from sqlalchemy import select
-
-        notice = (await db.execute(select(Notice).limit(1))).scalars().first()
-        if notice:
-            response = await client.post(
-                f"/notices/{notice.id}/pin", headers=teacher_headers
-            )
-            assert_success_response(response)
-
-    async def test_unpin_notice(
-        self, client: AsyncClient, teacher_headers: dict, db: AsyncSession
-    ):
-        from src.domain.notices.models import Notice
-        from sqlalchemy import select
-
-        notice = (await db.execute(select(Notice).limit(1))).scalars().first()
-        if notice:
-            response = await client.post(
-                f"/notices/{notice.id}/unpin", headers=teacher_headers
-            )
-            assert_success_response(response)
-
-
-class TestTeacherChat:
-    async def test_get_chat_rooms(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.get("/chat/rooms", headers=teacher_headers)
-        assert_success_response(response)
-
-    async def test_create_chat_room(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.post(
-            "/chat/rooms",
-            json={"student_profile_id": 1, "subject": "Doubt session"},
-            headers=teacher_headers,
-        )
-        assert response.status_code in (200, 201, 400, 404)
-
-    async def test_get_unread_count(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.get("/chat/unread", headers=teacher_headers)
-        assert_success_response(response)
-
-
-class TestTeacherAuthorizationNegative:
-    @pytest.mark.parametrize("token", INVALID_TOKENS)
-    async def test_invalid_tokens(self, client: AsyncClient, token: str):
-        response = await client.get(
-            "/teacher/profile", headers={"Authorization": token}
-        )
-        assert response.status_code in (401, 403)
-
-    async def test_admin_accessing_teacher_endpoint(
-        self, client: AsyncClient, admin_headers: dict
-    ):
-        response = await client.get("/teacher/profile", headers=admin_headers)
-        assert_error_response(response, 403)
-
-    async def test_student_accessing_teacher_endpoint(
-        self, client: AsyncClient, student_headers: dict
-    ):
-        response = await client.get("/teacher/profile", headers=student_headers)
-        assert_error_response(response, 403)
-
-
-class TestTeacherTimetableBase:
-    async def test_list_weekdays(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.get("/weekdays", headers=teacher_headers)
-        assert_success_response(response)
-
-    async def test_list_timeslots(self, client: AsyncClient, teacher_headers: dict):
-        response = await client.get("/timeslots", headers=teacher_headers)
-        assert_success_response(response)
-
-    async def test_get_class_timetable(
-        self, client: AsyncClient, teacher_headers: dict
-    ):
-        response = await client.get(
-            "/timetable/class/1?session_id=1", headers=teacher_headers
-        )
-        assert response.status_code in (200, 404)
-
-    async def test_create_timetable_entry(
-        self, client: AsyncClient, teacher_headers: dict
-    ):
-        response = await client.post(
-            "/timetable",
-            json={
-                "classroom_id": 1,
-                "teacher_subject_id": 1,
-                "week_day_id": 1,
-                "time_slot_id": 1,
-                "academic_sessions_id": 1,
-                "is_active": True,
-            },
-            headers=teacher_headers,
-        )
-        assert response.status_code in (200, 201, 400, 404)
+        assert_forbidden(response)

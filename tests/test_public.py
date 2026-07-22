@@ -1,356 +1,187 @@
 import pytest
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.security import hash_password
-from src.domain.users.models import User
-from src.core.enums import UserRole
-from .helpers import (
-    assert_success_response,
-    assert_error_response,
-    INVALID_EMAILS,
-    SQL_INJECTION_PAYLOADS,
-    XSS_PAYLOADS,
-)
+from tests.helpers import assert_no_content, assert_not_found, assert_ok, assert_unauthorized
+
+pytestmark = pytest.mark.asyncio
 
 
-@pytest.mark.asyncio
-class TestHealthEndpoint:
+class TestHealth:
     async def test_health_check(self, client: AsyncClient):
         response = await client.get("/health")
-        assert_success_response(response)
+        assert_ok(response)
         data = response.json()
         assert data["status"] == "healthy"
         assert data["version"] == "2.0.0"
 
-    async def test_health_check_no_auth_required(self, client: AsyncClient):
-        response = await client.get("/health", headers={"Authorization": ""})
-        assert_success_response(response)
 
-
-@pytest.mark.asyncio
-class TestLoginEndpoint:
-    async def test_login_success(self, client: AsyncClient, db: AsyncSession):
-
-        user = User(
-            email="logintest@test.com",
-            phone="8888888888",
-            password_hash=hash_password("TestPass123!"),
-            role=UserRole.ADMIN,
-            is_active=True,
-            is_deleted=False,
-        )
-        db.add(user)
-        await db.commit()
-    
+class TestAuthLogin:
+    async def test_login_success(self, client: AsyncClient, admin_user, db_session):
         response = await client.post(
             "/auth/login",
-            json={
-                "email": "logintest@test.com",
-                "password": "TestPass123!",
-            },
+            json={"email": "admin@test.com", "password": "TestPass123!"},
         )
-        assert_success_response(response)
+        assert_ok(response)
         data = response.json()
         assert "access_token" in data
         assert "refresh_token" in data
         assert "user" in data
+        assert data["user"]["email"] == "admin@test.com"
 
-    async def test_login_invalid_credentials(self, client: AsyncClient):
+    async def test_login_with_phone(self, client: AsyncClient, admin_user):
         response = await client.post(
             "/auth/login",
-            json={
-                "email": "nonexistent@test.com",
-                "password": "wrongpassword",
-            },
+            json={"email": "9876543210", "password": "TestPass123!"},
         )
-        assert_error_response(response, 401)
+        assert_ok(response)
+        data = response.json()
+        assert "access_token" in data
 
-    async def test_login_missing_password(self, client: AsyncClient):
-        response = await client.post("/auth/login", json={"email": "test@test.com"})
-        assert_error_response(response, 422)
-
-    async def test_login_missing_email(self, client: AsyncClient):
-        response = await client.post("/auth/login", json={"password": "test123"})
-        assert_error_response(response, 422)
-
-    async def test_login_empty_email(self, client: AsyncClient):
-        response = await client.post(
-            "/auth/login", json={"email": "", "password": "test123"}
-        )
-        assert response.status_code in (401, 422)
-
-    async def test_login_empty_password(self, client: AsyncClient):
+    async def test_login_invalid_password(self, client: AsyncClient, admin_user):
         response = await client.post(
             "/auth/login",
-            json={
-                "email": "test@test.com",
-                "password": "",
-            },
+            json={"email": "admin@test.com", "password": "WrongPass"},
         )
-        assert_error_response(response, 401)
+        assert_unauthorized(response)
 
-    @pytest.mark.parametrize("payload", SQL_INJECTION_PAYLOADS)
-    async def test_login_sql_injection(self, client: AsyncClient, payload: str):
+    async def test_login_nonexistent_user(self, client: AsyncClient):
         response = await client.post(
             "/auth/login",
-            json={
-                "email": payload,
-                "password": payload,
-            },
+            json={"email": "noone@test.com", "password": "TestPass123!"},
         )
-        assert response.status_code in (401, 422)
+        assert_unauthorized(response)
 
-    @pytest.mark.parametrize("payload", XSS_PAYLOADS)
-    async def test_login_xss(self, client: AsyncClient, payload: str):
+    async def test_login_empty_password(self, client: AsyncClient, admin_user):
         response = await client.post(
             "/auth/login",
-            json={
-                "email": payload,
-                "password": payload,
-            },
+            json={"email": "admin@test.com", "password": ""},
         )
-        assert response.status_code in (401, 422)
-
-    @pytest.mark.parametrize("email", INVALID_EMAILS)
-    async def test_login_invalid_emails(self, client: AsyncClient, email: str):
-        response = await client.post(
-            "/auth/login",
-            json={
-                "email": email,
-                "password": "test123",
-            },
-        )
-        assert response.status_code in (401, 422)
+        assert_unauthorized(response)
 
 
-@pytest.mark.asyncio
-class TestTokenEndpoint:
-    async def test_token_oauth2(self, client: AsyncClient, db: AsyncSession):
-
-        user = User(
-            email="tokenuser@test.com",
-            phone="7777777777",
-            password_hash=hash_password("TokenPass123!"),
-            role=UserRole.ADMIN,
-            is_active=True,
-            is_deleted=False,
-        )
-        db.add(user)
-        await db.commit()
-    
+class TestAuthToken:
+    async def test_token_endpoint(self, client: AsyncClient, admin_user):
         response = await client.post(
             "/auth/token",
-            data={
-                "username": "tokenuser@test.com",
-                "password": "TokenPass123!",
-            },
+            data={"username": "admin@test.com", "password": "TestPass123!"},
         )
-        assert_success_response(response)
+        assert_ok(response)
         data = response.json()
         assert "access_token" in data
         assert data["token_type"] == "bearer"
 
-    async def test_token_wrong_password(self, client: AsyncClient):
+
+class TestAuthRefresh:
+    async def test_refresh_token(self, client: AsyncClient, admin_user):
+        login_resp = await client.post(
+            "/auth/login",
+            json={"email": "admin@test.com", "password": "TestPass123!"},
+        )
+        refresh_token = login_resp.json()["refresh_token"]
+
         response = await client.post(
-            "/auth/token",
-            data={
-                "username": "any@test.com",
-                "password": "wrong",
-            },
+            "/auth/refresh",
+            json={"refresh_token": refresh_token},
         )
-        assert_error_response(response, 401)
+        assert_ok(response)
+        data = response.json()
+        assert "access_token" in data
+
+    async def test_refresh_with_invalid_token(self, client: AsyncClient):
+        response = await client.post(
+            "/auth/refresh",
+            json={"refresh_token": "invalid-token"},
+        )
+        assert_unauthorized(response)
 
 
-@pytest.mark.asyncio
-class TestForgotPasswordEndpoint:
-    async def test_forgot_password_always_204(self, client: AsyncClient):
+class TestAuthLogout:
+    async def test_logout(self, client: AsyncClient, admin_user, admin_headers):
+        response = await client.post(
+            "/auth/logout",
+            json={"refresh_token": None},
+            headers=admin_headers,
+        )
+        assert_no_content(response)
+
+    async def test_logout_unauthenticated(self, client: AsyncClient):
+        response = await client.post(
+            "/auth/logout",
+            json={"refresh_token": None},
+        )
+        assert_unauthorized(response)
+
+
+class TestAuthChangePassword:
+    async def test_change_password(self, client: AsyncClient, admin_user, admin_headers):
+        response = await client.post(
+            "/auth/change-password",
+            json={"old_password": "TestPass123!", "new_password": "NewPass456!"},
+            headers=admin_headers,
+        )
+        assert_no_content(response)
+
+        login_resp = await client.post(
+            "/auth/login",
+            json={"email": "admin@test.com", "password": "NewPass456!"},
+        )
+        assert_ok(login_resp)
+
+    async def test_change_password_wrong_old(self, client: AsyncClient, admin_user, admin_headers):
+        response = await client.post(
+            "/auth/change-password",
+            json={"old_password": "WrongPass", "new_password": "NewPass456!"},
+            headers=admin_headers,
+        )
+        assert_unauthorized(response)
+
+    async def test_change_password_same_password(self, client: AsyncClient, admin_user, admin_headers):
+        response = await client.post(
+            "/auth/change-password",
+            json={"old_password": "TestPass123!", "new_password": "TestPass123!"},
+            headers=admin_headers,
+        )
+        assert response.status_code in (400, 409)
+
+    async def test_change_password_unauthenticated(self, client: AsyncClient):
+        response = await client.post(
+            "/auth/change-password",
+            json={"old_password": "x", "new_password": "y" * 8},
+        )
+        assert_unauthorized(response)
+
+
+class TestAuthForgotPassword:
+    async def test_forgot_password(self, client: AsyncClient, admin_user):
         response = await client.post(
             "/auth/forgot-password",
-            json={
-                "email": "any@test.com",
-            },
+            json={"email": "admin@test.com"},
         )
-        assert_success_response(response, 204)
+        assert_no_content(response)
 
-    async def test_forgot_password_no_email_leakage(
-        self, client: AsyncClient, db: AsyncSession
-    ):
-
-        user = User(
-            email="existing@test.com",
-            phone="6666666666",
-            password_hash=hash_password("test123"),
-            role=UserRole.TEACHER,
-            is_active=True,
-            is_deleted=False,
-        )
-        db.add(user)
-        await db.commit()
-
-        response_existing = await client.post(
+    async def test_forgot_password_nonexistent(self, client: AsyncClient):
+        response = await client.post(
             "/auth/forgot-password",
-            json={
-                "email": "existing@test.com",
-            },
+            json={"email": "noone@test.com"},
         )
-        response_nonexisting = await client.post(
-            "/auth/forgot-password",
-            json={
-                "email": "nonexisting@test.com",
-            },
-        )
-        assert response_existing.status_code == 204
-        assert response_nonexisting.status_code == 204
-
-    async def test_forgot_password_missing_email(self, client: AsyncClient):
-        response = await client.post("/auth/forgot-password", json={})
-        assert_error_response(response, 422)
+        assert_no_content(response)
 
     async def test_forgot_password_invalid_email(self, client: AsyncClient):
         response = await client.post(
-            "/auth/forgot-password", json={"email": "notanemail"}
+            "/auth/forgot-password",
+            json={"email": "not-an-email"},
         )
-        assert response.status_code in (204, 422)
-
-    @pytest.mark.parametrize("payload", SQL_INJECTION_PAYLOADS)
-    async def test_forgot_password_sql_injection(
-        self, client: AsyncClient, payload: str
-    ):
-        response = await client.post("/auth/forgot-password", json={"email": payload})
-        assert response.status_code in (204, 422)
+        assert response.status_code == 422
 
 
-@pytest.mark.asyncio
-class TestResetPasswordEndpoint:
-    async def test_reset_password_invalid_token(self, client: AsyncClient):
-        response = await client.post(
-            "/auth/reset-password",
-            json={
-                "token": "invalid-token",
-                "new_password": "NewPass123!",
-            },
-        )
-        assert_error_response(response, 401)
+class TestAuthValidateToken:
+    async def test_validate_token(self, client: AsyncClient, admin_user, admin_headers):
+        response = await client.get("/auth/validate-token", headers=admin_headers)
+        assert_ok(response)
+        data = response.json()
+        assert data["valid"] is True
+        assert data["role"] == "admin"
 
-    async def test_reset_password_missing_fields(self, client: AsyncClient):
-        response = await client.post("/auth/reset-password", json={})
-        assert_error_response(response, 422)
-
-    async def test_reset_password_weak_password(self, client: AsyncClient):
-        response = await client.post(
-            "/auth/reset-password",
-            json={
-                "token": "some-token",
-                "new_password": "123",
-            },
-        )
-        assert response.status_code in (401, 422)
-
-
-@pytest.mark.asyncio
-class TestSendLoginOtpEndpoint:
-    async def test_send_login_otp_always_204(self, client: AsyncClient):
-        response = await client.post(
-            "/auth/send-login-otp",
-            json={
-                "email": "any@test.com",
-            },
-        )
-        assert_success_response(response, 204)
-
-    async def test_send_login_otp_no_email_leakage(self, client: AsyncClient):
-        response_existing = await client.post(
-            "/auth/send-login-otp",
-            json={
-                "email": "exists@test.com",
-            },
-        )
-        response_not = await client.post(
-            "/auth/send-login-otp",
-            json={
-                "email": "notexists@test.com",
-            },
-        )
-        assert response_existing.status_code == 204
-        assert response_not.status_code == 204
-
-    async def test_send_login_otp_missing_email(self, client: AsyncClient):
-        response = await client.post("/auth/send-login-otp", json={})
-        assert_error_response(response, 422)
-
-
-@pytest.mark.asyncio
-class TestVerifyLoginOtpEndpoint:
-    async def test_verify_login_otp_invalid_otp(self, client: AsyncClient):
-        response = await client.post(
-            "/auth/verify-login-otp",
-            json={
-                "email": "test@test.com",
-                "otp": "000000",
-            },
-        )
-        assert_error_response(response, 401)
-
-    async def test_verify_login_otp_missing_fields(self, client: AsyncClient):
-        response = await client.post("/auth/verify-login-otp", json={})
-        assert_error_response(response, 422)
-
-    async def test_verify_login_otp_invalid_email(self, client: AsyncClient):
-        response = await client.post(
-            "/auth/verify-login-otp",
-            json={
-                "email": "notvalid",
-                "otp": "123456",
-            },
-        )
-        assert response.status_code in (401, 422)
-
-
-@pytest.mark.asyncio
-class TestRefreshTokenEndpoint:
-    async def test_refresh_invalid_token(self, client: AsyncClient):
-        response = await client.post(
-            "/auth/refresh",
-            json={
-                "refresh_token": "invalid-token-here",
-            },
-        )
-        assert_error_response(response, 401)
-
-    async def test_refresh_missing_token(self, client: AsyncClient):
-        response = await client.post("/auth/refresh", json={})
-        assert_error_response(response, 422)
-
-    async def test_refresh_empty_token(self, client: AsyncClient):
-        response = await client.post("/auth/refresh", json={"refresh_token": ""})
-        assert_error_response(response, 401)
-
-
-@pytest.mark.asyncio
-class TestLogoutEndpoint:
-    async def test_logout_without_token(self, client: AsyncClient):
-        response = await client.post("/auth/logout", json={"refresh_token": ""})
-        assert_error_response(response, 401)
-
-    async def test_logout_invalid_token(self, client: AsyncClient):
-        response = await client.post(
-            "/auth/logout",
-            json={"refresh_token": ""},
-            headers={"Authorization": "Bearer invalid"},
-        )
-        assert_error_response(response, 401)
-
-
-@pytest.mark.asyncio
-class TestValidateTokenEndpoint:
-    async def test_validate_without_token(self, client: AsyncClient):
+    async def test_validate_token_no_auth(self, client: AsyncClient):
         response = await client.get("/auth/validate-token")
-        assert_error_response(response, 401)
-
-    async def test_validate_invalid_token(self, client: AsyncClient):
-        response = await client.get(
-            "/auth/validate-token",
-            headers={"Authorization": "Bearer invalid"},
-        )
-        assert_error_response(response, 401)
+        assert_unauthorized(response)

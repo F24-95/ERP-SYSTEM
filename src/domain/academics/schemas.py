@@ -38,8 +38,7 @@ class AcademicSessionResponse(AcademicSessionBase):
     id: int
     is_active: bool
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 # ====================
@@ -76,8 +75,7 @@ class ClassRoomResponse(ClassRoomBase):
     id: int
     is_active: bool
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class ClassRoomMinResponse(BaseModel):
@@ -90,8 +88,7 @@ class ClassRoomMinResponse(BaseModel):
     section: str
     display_name: str
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 # ====================
@@ -124,8 +121,7 @@ class SubjectResponse(SubjectBase):
     id: int
     is_active: bool
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 # ====================
@@ -159,5 +155,4 @@ class ClassSubjectResponse(ClassSubjectBase):
     id: int
     is_active: bool
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
