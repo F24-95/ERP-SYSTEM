@@ -1,4 +1,4 @@
-# School ERP Backend — `final_model_v3_refactored`
+# School ERP Backend —   `final_model_v3_refactored`
 
 An async, domain-driven FastAPI backend for a school management system: users
 & roles, academics, enrollment, attendance, assignments, exams, fees,
@@ -173,7 +173,7 @@ What changed in the port from the legacy sync project: see **`CHANGELOG.md`**.
 - Forgot-password and login-by-OTP endpoints always return a generic success
   message, whether or not the email exists, to prevent account enumeration.
 
----
+--- 
 
 ## 6. Known gaps / deliberately out of scope
 
