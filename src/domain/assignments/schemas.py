@@ -70,7 +70,7 @@ class AssignmentResponse(BaseResponse, AssignmentBase):
     class_subject_id: int
     teacher_subject_id: int
     uploaded_by: int | None = None
-    created_by: int
+    created_by: int | None = None
     updated_by: int | None = None
     deleted_by: int | None = None
     total_students: int = 0

@@ -2,6 +2,7 @@ from datetime import date
 
 from pydantic import BaseModel
 
+
 # ====================
 # Academic Session
 # ====================
@@ -87,39 +88,6 @@ class ClassRoomMinResponse(BaseModel):
     class_name: str
     section: str
     display_name: str
-
-    model_config = {"from_attributes": True}
-
-
-# ====================
-# Subject
-# ====================
-
-
-class SubjectBase(BaseModel):
-    subject_code: str
-    subject_name: str
-    description: str | None = None
-    display_order: int = 1
-    subject_type: str = "Core"
-
-
-class SubjectCreate(SubjectBase):
-    pass
-
-
-class SubjectUpdate(BaseModel):
-    subject_code: str | None = None
-    subject_name: str | None = None
-    description: str | None = None
-    display_order: int | None = None
-    subject_type: str | None = None
-    is_active: bool | None = None
-
-
-class SubjectResponse(SubjectBase):
-    id: int
-    is_active: bool
 
     model_config = {"from_attributes": True}
 

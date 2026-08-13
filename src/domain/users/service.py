@@ -33,8 +33,10 @@ class UserService:
     @classmethod
     async def get_user(cls, session: AsyncSession, public_id: str):
         user = await user_crud.get_by_public_id(session, public_id)
-        if not user:
-            raise ResourceNotFoundException("User not found")
+        if user is None:
+            raise ResourceNotFoundException(
+                f"User with public_id={public_id} not found.",
+            )
         return user
 
     @classmethod

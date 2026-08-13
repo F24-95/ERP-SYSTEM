@@ -13,10 +13,9 @@ alembic revision --autogenerate -m "initial schema"
 alembic upgrade head
 ```
 
-For local/dev SQLite, `src/main.py`'s startup event now also calls
-`Base.metadata.create_all()` automatically (controlled by the
-`AUTO_CREATE_TABLES` env var, default `true`) so the app is usable
-immediately without running Alembic by hand. Turn this off
+`src/main.py`'s startup event calls `Base.metadata.create_all()` automatically
+(controlled by the `AUTO_CREATE_TABLES` env var, default `true`) so the app
+is usable immediately without running Alembic by hand. Turn this off
 (`AUTO_CREATE_TABLES=false`) in any environment where Alembic migrations are
 the source of truth (staging/production), to avoid the two mechanisms
 fighting each other.

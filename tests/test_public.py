@@ -1,7 +1,11 @@
 import pytest
 from httpx import AsyncClient
 
-from tests.helpers import assert_no_content, assert_not_found, assert_ok, assert_unauthorized
+from tests.helpers import (
+    assert_no_content,
+    assert_ok,
+    assert_unauthorized,
+)
 
 pytestmark = pytest.mark.asyncio
 
@@ -113,7 +117,9 @@ class TestAuthLogout:
 
 
 class TestAuthChangePassword:
-    async def test_change_password(self, client: AsyncClient, admin_user, admin_headers):
+    async def test_change_password(
+        self, client: AsyncClient, admin_user, admin_headers
+    ):
         response = await client.post(
             "/auth/change-password",
             json={"old_password": "TestPass123!", "new_password": "NewPass456!"},
@@ -127,7 +133,9 @@ class TestAuthChangePassword:
         )
         assert_ok(login_resp)
 
-    async def test_change_password_wrong_old(self, client: AsyncClient, admin_user, admin_headers):
+    async def test_change_password_wrong_old(
+        self, client: AsyncClient, admin_user, admin_headers
+    ):
         response = await client.post(
             "/auth/change-password",
             json={"old_password": "WrongPass", "new_password": "NewPass456!"},
@@ -135,7 +143,9 @@ class TestAuthChangePassword:
         )
         assert_unauthorized(response)
 
-    async def test_change_password_same_password(self, client: AsyncClient, admin_user, admin_headers):
+    async def test_change_password_same_password(
+        self, client: AsyncClient, admin_user, admin_headers
+    ):
         response = await client.post(
             "/auth/change-password",
             json={"old_password": "TestPass123!", "new_password": "TestPass123!"},

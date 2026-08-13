@@ -2,69 +2,23 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.enums import UserRole
-from src.core.exceptions import AuthorizationException, ResourceNotFoundException
+from src.core.exceptions import AuthorizationException
 from src.core.logger import get_logger
 from src.domain.khan_academy.crud import (
     ka_student_activity_crud,
     ka_subject_activity_crud,
     ka_subject_progress_crud,
     ka_topic_progress_crud,
-    topic_crud,
 )
 from src.domain.khan_academy.models import (
     KaStudentActivity,
     KaSubjectActivity,
     KaSubjectProgress,
     KaTopicProgress,
-    Topic,
 )
 from src.domain.users.models import StudentProfile, User
 
 logger = get_logger(__name__)
-
-
-class TopicService:
-    """Full CRUD for the Topic catalog. Admin/Teacher manage; anyone
-    authenticated can browse (matches how Subject/ClassRoom-level catalog
-    data is treated elsewhere in this project -- no legacy precedent exists
-    for this table since it's new, so this follows the closest analogous
-    pattern: study material's "staff creates, everyone reads" shape).
-    """
-
-    @staticmethod
-    async def create_topic(db: AsyncSession, data: dict) -> Topic:
-        return await topic_crud.create(db, data)
-
-    @staticmethod
-    async def list_topics(
-        db: AsyncSession,
-        subject_id: int = None,
-        classroom_id: int = None,
-    ) -> list[Topic]:
-        query = select(Topic).filter(Topic.is_active == True)  # noqa: E712
-        if subject_id is not None:
-            query = query.filter(Topic.subject_id == subject_id)
-        if classroom_id is not None:
-            query = query.filter(Topic.classroom_id == classroom_id)
-        query = query.order_by(Topic.display_order.asc())
-        return list((await db.execute(query)).scalars().all())
-
-    @staticmethod
-    async def get_topic(db: AsyncSession, topic_id: int) -> Topic:
-        topic = await topic_crud.get(db, topic_id)
-        if not topic:
-            raise ResourceNotFoundException("Topic not found")
-        return topic
-
-    @staticmethod
-    async def update_topic(db: AsyncSession, topic_id: int, data: dict) -> Topic:
-        await TopicService.get_topic(db, topic_id)
-        return await topic_crud.update(db, topic_id, data)
-
-    @staticmethod
-    async def delete_topic(db: AsyncSession, topic_id: int) -> None:
-        await TopicService.get_topic(db, topic_id)
-        await topic_crud.update(db, topic_id, {"is_active": False})
 
 
 class KaProgressService:

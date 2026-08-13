@@ -1,7 +1,7 @@
 import pytest
 from httpx import AsyncClient
 
-from tests.helpers import assert_forbidden, assert_ok, assert_unauthorized
+from tests.helpers import assert_forbidden, assert_ok
 
 pytestmark = pytest.mark.asyncio
 
@@ -28,13 +28,17 @@ class TestStudentAuthValidate:
 
 
 class TestStudentProfileList:
-    async def test_list_student_profiles(self, student_client: AsyncClient, student_user):
+    async def test_list_student_profiles(
+        self, student_client: AsyncClient, student_user
+    ):
         response = await student_client.get("/admin/students")
         assert_ok(response)
         data = response.json()
         assert len(data) >= 1
 
-    async def test_list_teacher_profiles(self, student_client: AsyncClient, teacher_user):
+    async def test_list_teacher_profiles(
+        self, student_client: AsyncClient, teacher_user
+    ):
         response = await student_client.get("/admin/teachers")
         assert_ok(response)
         data = response.json()
@@ -51,7 +55,12 @@ class TestStudentForbidden:
     async def test_cannot_create_user(self, student_client: AsyncClient):
         response = await student_client.post(
             "/admin/user",
-            json={"email": "x@x.com", "phone": "1111111111", "role": "student", "password": "Pass1234!"},
+            json={
+                "email": "x@x.com",
+                "phone": "1111111111",
+                "role": "student",
+                "password": "Pass1234!",
+            },
         )
         assert_forbidden(response)
 
@@ -59,13 +68,18 @@ class TestStudentForbidden:
         response = await student_client.get("/admin/users")
         assert_forbidden(response)
 
-    async def test_cannot_deactivate_user(self, student_client: AsyncClient, student_user):
+    async def test_cannot_deactivate_user(
+        self, student_client: AsyncClient, student_user
+    ):
         response = await student_client.delete(f"/admin/users/{student_user.public_id}")
         assert_forbidden(response)
 
-    async def test_cannot_update_teacher_profile(self, student_client: AsyncClient, teacher_user, db_session):
+    async def test_cannot_update_teacher_profile(
+        self, student_client: AsyncClient, teacher_user, db_session
+    ):
         from sqlalchemy import select
         from src.domain.users.models import TeacherProfile
+
         result = await db_session.execute(
             select(TeacherProfile).filter_by(user_id=teacher_user.id)
         )
@@ -80,11 +94,17 @@ class TestStudentForbidden:
         response = await student_client.get("/teacher/profile")
         assert_forbidden(response)
 
-    async def test_cannot_deactivate_session(self, student_client: AsyncClient, academic_session):
-        response = await student_client.delete(f"/academics/sessions/{academic_session.id}")
+    async def test_cannot_deactivate_session(
+        self, student_client: AsyncClient, academic_session
+    ):
+        response = await student_client.delete(
+            f"/academics/sessions/{academic_session.id}"
+        )
         assert_forbidden(response)
 
-    async def test_cannot_delete_classroom(self, student_client: AsyncClient, classroom):
+    async def test_cannot_delete_classroom(
+        self, student_client: AsyncClient, classroom
+    ):
         response = await student_client.delete(f"/academics/classrooms/{classroom.id}")
         assert_forbidden(response)
 

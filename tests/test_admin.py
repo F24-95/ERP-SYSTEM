@@ -34,7 +34,9 @@ class TestAdminUserCRUD:
     async def test_create_duplicate_email(self, admin_client: AsyncClient, admin_user):
         response = await admin_client.post("/admin/user", json=self.USER_CREATE_PAYLOAD)
         assert_created(response)
-        response2 = await admin_client.post("/admin/user", json=self.USER_CREATE_PAYLOAD)
+        response2 = await admin_client.post(
+            "/admin/user", json=self.USER_CREATE_PAYLOAD
+        )
         assert_bad_request(response2)
 
     async def test_create_user_unauthorized(self, client: AsyncClient):
@@ -42,26 +44,36 @@ class TestAdminUserCRUD:
         assert_unauthorized(response)
 
     async def test_create_user_forbidden_student(self, student_client: AsyncClient):
-        response = await student_client.post("/admin/user", json=self.USER_CREATE_PAYLOAD)
+        response = await student_client.post(
+            "/admin/user", json=self.USER_CREATE_PAYLOAD
+        )
         assert_forbidden(response)
 
     async def test_create_user_forbidden_teacher(self, teacher_client: AsyncClient):
-        response = await teacher_client.post("/admin/user", json=self.USER_CREATE_PAYLOAD)
+        response = await teacher_client.post(
+            "/admin/user", json=self.USER_CREATE_PAYLOAD
+        )
         assert_forbidden(response)
 
-    async def test_list_users(self, admin_client: AsyncClient, admin_user, teacher_user, student_user):
+    async def test_list_users(
+        self, admin_client: AsyncClient, admin_user, teacher_user, student_user
+    ):
         response = await admin_client.get("/admin/users")
         assert_ok(response)
         data = response.json()
         assert len(data) >= 3
 
-    async def test_list_users_filter_role(self, admin_client: AsyncClient, admin_user, teacher_user, student_user):
+    async def test_list_users_filter_role(
+        self, admin_client: AsyncClient, admin_user, teacher_user, student_user
+    ):
         response = await admin_client.get("/admin/users?role=teacher")
         assert_ok(response)
         data = response.json()
         assert all(u["role"] == "teacher" for u in data)
 
-    async def test_list_users_filter_active(self, admin_client: AsyncClient, admin_user):
+    async def test_list_users_filter_active(
+        self, admin_client: AsyncClient, admin_user
+    ):
         response = await admin_client.get("/admin/users?is_active=true")
         assert_ok(response)
         data = response.json()
@@ -86,7 +98,9 @@ class TestAdminUserCRUD:
         data = response.json()
         assert data["phone"] == "1112223334"
 
-    async def test_update_user_deactivate(self, admin_client: AsyncClient, student_user):
+    async def test_update_user_deactivate(
+        self, admin_client: AsyncClient, student_user
+    ):
         response = await admin_client.patch(
             f"/admin/users/{student_user.public_id}",
             json={"is_active": False},
@@ -114,9 +128,12 @@ class TestAdminStudentProfiles:
         assert len(data) >= 1
         assert any(s["student_name"] == "Test Student" for s in data)
 
-    async def test_get_student_profile(self, admin_client: AsyncClient, student_user, db_session):
+    async def test_get_student_profile(
+        self, admin_client: AsyncClient, student_user, db_session
+    ):
         from sqlalchemy import select
         from src.domain.users.models import StudentProfile
+
         result = await db_session.execute(
             select(StudentProfile).filter_by(user_id=student_user.id)
         )
@@ -125,9 +142,12 @@ class TestAdminStudentProfiles:
         assert_ok(response)
         assert response.json()["student_name"] == "Test Student"
 
-    async def test_update_student_profile(self, admin_client: AsyncClient, student_user, db_session):
+    async def test_update_student_profile(
+        self, admin_client: AsyncClient, student_user, db_session
+    ):
         from sqlalchemy import select
         from src.domain.users.models import StudentProfile
+
         result = await db_session.execute(
             select(StudentProfile).filter_by(user_id=student_user.id)
         )
@@ -140,9 +160,12 @@ class TestAdminStudentProfiles:
         assert response.json()["student_name"] == "Updated Name"
         assert response.json()["city"] == "Mumbai"
 
-    async def test_deactivate_student(self, admin_client: AsyncClient, student_user, db_session):
+    async def test_deactivate_student(
+        self, admin_client: AsyncClient, student_user, db_session
+    ):
         from sqlalchemy import select
         from src.domain.users.models import StudentProfile
+
         result = await db_session.execute(
             select(StudentProfile).filter_by(user_id=student_user.id)
         )
@@ -162,9 +185,12 @@ class TestAdminTeacherProfiles:
         data = response.json()
         assert len(data) >= 1
 
-    async def test_get_teacher_profile(self, admin_client: AsyncClient, teacher_user, db_session):
+    async def test_get_teacher_profile(
+        self, admin_client: AsyncClient, teacher_user, db_session
+    ):
         from sqlalchemy import select
         from src.domain.users.models import TeacherProfile
+
         result = await db_session.execute(
             select(TeacherProfile).filter_by(user_id=teacher_user.id)
         )
@@ -173,9 +199,12 @@ class TestAdminTeacherProfiles:
         assert_ok(response)
         assert response.json()["teacher_name"] == "Test Teacher"
 
-    async def test_update_teacher_profile(self, admin_client: AsyncClient, teacher_user, db_session):
+    async def test_update_teacher_profile(
+        self, admin_client: AsyncClient, teacher_user, db_session
+    ):
         from sqlalchemy import select
         from src.domain.users.models import TeacherProfile
+
         result = await db_session.execute(
             select(TeacherProfile).filter_by(user_id=teacher_user.id)
         )
@@ -187,9 +216,12 @@ class TestAdminTeacherProfiles:
         assert_ok(response)
         assert response.json()["teacher_name"] == "Updated Teacher"
 
-    async def test_deactivate_teacher(self, admin_client: AsyncClient, teacher_user, db_session):
+    async def test_deactivate_teacher(
+        self, admin_client: AsyncClient, teacher_user, db_session
+    ):
         from sqlalchemy import select
         from src.domain.users.models import TeacherProfile
+
         result = await db_session.execute(
             select(TeacherProfile).filter_by(user_id=teacher_user.id)
         )
@@ -205,9 +237,12 @@ class TestAdminAdminProfiles:
         data = response.json()
         assert len(data) >= 1
 
-    async def test_get_admin_profile(self, admin_client: AsyncClient, admin_user, db_session):
+    async def test_get_admin_profile(
+        self, admin_client: AsyncClient, admin_user, db_session
+    ):
         from sqlalchemy import select
         from src.domain.users.models import AdminProfile
+
         result = await db_session.execute(
             select(AdminProfile).filter_by(user_id=admin_user.id)
         )
@@ -216,9 +251,12 @@ class TestAdminAdminProfiles:
         assert_ok(response)
         assert response.json()["admin_name"] == "Test Admin"
 
-    async def test_update_admin_profile(self, admin_client: AsyncClient, admin_user, db_session):
+    async def test_update_admin_profile(
+        self, admin_client: AsyncClient, admin_user, db_session
+    ):
         from sqlalchemy import select
         from src.domain.users.models import AdminProfile
+
         result = await db_session.execute(
             select(AdminProfile).filter_by(user_id=admin_user.id)
         )
@@ -230,9 +268,12 @@ class TestAdminAdminProfiles:
         assert_ok(response)
         assert response.json()["admin_name"] == "Super Admin"
 
-    async def test_deactivate_admin_profile(self, admin_client: AsyncClient, admin_user, db_session):
+    async def test_deactivate_admin_profile(
+        self, admin_client: AsyncClient, admin_user, db_session
+    ):
         from sqlalchemy import select
         from src.domain.users.models import AdminProfile
+
         result = await db_session.execute(
             select(AdminProfile).filter_by(user_id=admin_user.id)
         )
@@ -253,7 +294,9 @@ class TestAdminAcademicsSessions:
     }
 
     async def test_create_session(self, admin_client: AsyncClient):
-        response = await admin_client.post("/academics/sessions", json=self.SESSION_PAYLOAD)
+        response = await admin_client.post(
+            "/academics/sessions", json=self.SESSION_PAYLOAD
+        )
         assert_created(response)
         data = response.json()
         assert data["session_code"] == "SES-2027"
@@ -278,8 +321,12 @@ class TestAdminAcademicsSessions:
         assert_ok(response)
         assert response.json()["description"] == "Updated desc"
 
-    async def test_deactivate_session(self, admin_client: AsyncClient, academic_session):
-        response = await admin_client.delete(f"/academics/sessions/{academic_session.id}")
+    async def test_deactivate_session(
+        self, admin_client: AsyncClient, academic_session
+    ):
+        response = await admin_client.delete(
+            f"/academics/sessions/{academic_session.id}"
+        )
         assert_no_content(response)
 
 
@@ -331,7 +378,9 @@ class TestAdminAcademicsSubjects:
     }
 
     async def test_create_subject(self, admin_client: AsyncClient):
-        response = await admin_client.post("/academics/subjects", json=self.SUBJECT_PAYLOAD)
+        response = await admin_client.post(
+            "/academics/subjects", json=self.SUBJECT_PAYLOAD
+        )
         assert_created(response)
         assert response.json()["subject_code"] == "PHY"
 
@@ -358,10 +407,16 @@ class TestAdminAcademicsSubjects:
         response = await admin_client.delete(f"/academics/subjects/{subject.id}")
         assert_no_content(response)
 
-    async def test_create_duplicate_subject_code(self, admin_client: AsyncClient, subject):
+    async def test_create_duplicate_subject_code(
+        self, admin_client: AsyncClient, subject
+    ):
         response = await admin_client.post(
             "/academics/subjects",
-            json={"subject_code": "MATH", "subject_name": "Math Again", "display_order": 3},
+            json={
+                "subject_code": "MATH",
+                "subject_name": "Math Again",
+                "display_order": 3,
+            },
         )
         assert_bad_request(response)
 
@@ -384,14 +439,22 @@ class TestAdminAcademicsClassSubjects:
         assert data["subject_id"] == subject.id
 
     async def test_list_class_subjects(
-        self, admin_client: AsyncClient, db_session, academic_session, classroom, subject
+        self,
+        admin_client: AsyncClient,
+        db_session,
+        academic_session,
+        classroom,
+        subject,
     ):
         from src.domain.academics.models import ClassSubject
-        db_session.add(ClassSubject(
-            academic_sessions_id=academic_session.id,
-            classroom_id=classroom.id,
-            subject_id=subject.id,
-        ))
+
+        db_session.add(
+            ClassSubject(
+                academic_sessions_id=academic_session.id,
+                classroom_id=classroom.id,
+                subject_id=subject.id,
+            )
+        )
         await db_session.flush()
 
         response = await admin_client.get("/academics/class-subjects")
@@ -400,9 +463,15 @@ class TestAdminAcademicsClassSubjects:
         assert len(data) >= 1
 
     async def test_get_class_subject(
-        self, admin_client: AsyncClient, db_session, academic_session, classroom, subject
+        self,
+        admin_client: AsyncClient,
+        db_session,
+        academic_session,
+        classroom,
+        subject,
     ):
         from src.domain.academics.models import ClassSubject
+
         cs = ClassSubject(
             academic_sessions_id=academic_session.id,
             classroom_id=classroom.id,
@@ -418,9 +487,16 @@ class TestAdminAcademicsClassSubjects:
 
 class TestAdminOperationsTeacherAssignments:
     async def test_assign_teacher_to_subject(
-        self, admin_client: AsyncClient, teacher_user, academic_session, classroom, subject, db_session
+        self,
+        admin_client: AsyncClient,
+        teacher_user,
+        academic_session,
+        classroom,
+        subject,
+        db_session,
     ):
         from src.domain.academics.models import ClassSubject
+
         cs = ClassSubject(
             academic_sessions_id=academic_session.id,
             classroom_id=classroom.id,
@@ -449,10 +525,17 @@ class TestAdminOperationsTeacherAssignments:
         assert_ok(response)
 
     async def test_unassign_teacher(
-        self, admin_client: AsyncClient, teacher_user, academic_session, classroom, subject, db_session
+        self,
+        admin_client: AsyncClient,
+        teacher_user,
+        academic_session,
+        classroom,
+        subject,
+        db_session,
     ):
         from src.domain.academics.models import ClassSubject
         from src.domain.operations.models import TeacherSubject
+
         cs = ClassSubject(
             academic_sessions_id=academic_session.id,
             classroom_id=classroom.id,
@@ -494,16 +577,24 @@ class TestAdminOperationsStudentEnrollments:
         assert data["roll_number"] == 1
 
     async def test_enroll_duplicate_student(
-        self, admin_client: AsyncClient, student_user, academic_session, classroom, db_session
+        self,
+        admin_client: AsyncClient,
+        student_user,
+        academic_session,
+        classroom,
+        db_session,
     ):
         from src.domain.operations.models import StudentClass
-        db_session.add(StudentClass(
-            student_id=student_user.id,
-            classroom_id=classroom.id,
-            academic_sessions_id=academic_session.id,
-            roll_number=1,
-            admission_date=__import__("datetime").datetime.utcnow().date(),
-        ))
+
+        db_session.add(
+            StudentClass(
+                student_id=student_user.id,
+                classroom_id=classroom.id,
+                academic_sessions_id=academic_session.id,
+                roll_number=1,
+                admission_date=__import__("datetime").datetime.utcnow().date(),
+            )
+        )
         await db_session.flush()
 
         response = await admin_client.post(
@@ -523,9 +614,15 @@ class TestAdminOperationsStudentEnrollments:
         assert_ok(response)
 
     async def test_unenroll_student(
-        self, admin_client: AsyncClient, student_user, academic_session, classroom, db_session
+        self,
+        admin_client: AsyncClient,
+        student_user,
+        academic_session,
+        classroom,
+        db_session,
     ):
         from src.domain.operations.models import StudentClass
+
         sc = StudentClass(
             student_id=student_user.id,
             classroom_id=classroom.id,
@@ -561,11 +658,18 @@ class TestAdminRoleIsolation:
     async def test_student_cannot_create_user(self, student_client: AsyncClient):
         response = await student_client.post(
             "/admin/user",
-            json={"email": "x@x.com", "phone": "1111111111", "role": "student", "password": "Pass1234!"},
+            json={
+                "email": "x@x.com",
+                "phone": "1111111111",
+                "role": "student",
+                "password": "Pass1234!",
+            },
         )
         assert_forbidden(response)
 
-    async def test_teacher_cannot_deactivate_user(self, teacher_client: AsyncClient, student_user):
+    async def test_teacher_cannot_deactivate_user(
+        self, teacher_client: AsyncClient, student_user
+    ):
         response = await teacher_client.delete(f"/admin/users/{student_user.public_id}")
         assert_forbidden(response)
 
@@ -573,9 +677,12 @@ class TestAdminRoleIsolation:
         response = await client.get("/admin/users")
         assert_unauthorized(response)
 
-    async def test_student_cannot_delete_admin_profile(self, student_client: AsyncClient, admin_user, db_session):
+    async def test_student_cannot_delete_admin_profile(
+        self, student_client: AsyncClient, admin_user, db_session
+    ):
         from sqlalchemy import select
         from src.domain.users.models import AdminProfile
+
         result = await db_session.execute(
             select(AdminProfile).filter_by(user_id=admin_user.id)
         )
@@ -583,6 +690,8 @@ class TestAdminRoleIsolation:
         response = await student_client.delete(f"/admin/admins/{profile.id}")
         assert_forbidden(response)
 
-    async def test_teacher_can_list_students(self, teacher_client: AsyncClient, student_user):
+    async def test_teacher_can_list_students(
+        self, teacher_client: AsyncClient, student_user
+    ):
         response = await teacher_client.get("/admin/students")
         assert_ok(response)

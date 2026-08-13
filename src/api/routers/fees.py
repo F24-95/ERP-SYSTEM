@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.dependencies import get_current_user, require_role
 from src.core.enums import UserRole
 from src.database.connection import get_db
+from src.domain.common.schemas import MessageResponse
 from src.domain.fees.crud import fee_crud
 from src.domain.fees.schemas import FeeCreate, FeePayment, FeeResponse, FeeUpdate
 from src.domain.fees.service import FeeService
@@ -116,7 +117,7 @@ async def update_fee(
     return await FeeService.update_fee(db, fee_id, data, user_id=current_user.id)
 
 
-@router.delete("/{fee_id}", status_code=204)
+@router.delete("/{fee_id}", response_model=MessageResponse)
 async def deactivate_fee(
     fee_id: str,
     db: AsyncSession = Depends(get_db),
@@ -124,3 +125,4 @@ async def deactivate_fee(
 ):
     """Deactivate a fee record (e.g. it was raised in error). Was missing entirely."""
     await FeeService.deactivate_fee(db, fee_id, user_id=current_user.id)
+    return MessageResponse(message="Fee deactivated")

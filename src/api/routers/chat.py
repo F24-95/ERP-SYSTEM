@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.dependencies import get_current_user, require_role
 from src.core.enums import UserRole
 from src.database.connection import get_db
+from src.domain.common.schemas import MessageResponse
 from src.domain.chat.schemas import (
     ChatMessageCreate,
     ChatMessageEdit,
@@ -70,7 +71,7 @@ async def update_chat_room(
     )
 
 
-@router.delete("/rooms/{room_id}", status_code=204)
+@router.delete("/rooms/{room_id}", response_model=MessageResponse)
 async def archive_chat_room(
     room_id: int,
     current_user=Depends(get_current_user),
@@ -80,6 +81,7 @@ async def archive_chat_room(
     could never be closed by either participant or an admin.
     """
     await ChatService.archive_chat_room(db, room_id, current_user)
+    return MessageResponse(message="Chat room archived")
 
 
 @router.post("/rooms/{room_id}/messages", response_model=ChatMessageResponse)
@@ -139,7 +141,7 @@ async def edit_message(
     )
 
 
-@router.delete("/rooms/{room_id}/messages/{message_id}", status_code=204)
+@router.delete("/rooms/{room_id}/messages/{message_id}", response_model=MessageResponse)
 async def delete_message(
     room_id: int,
     message_id: int,
@@ -148,6 +150,7 @@ async def delete_message(
 ):
     """Delete your own message. Was missing entirely."""
     await ChatService.delete_message(db, room_id, message_id, current_user)
+    return MessageResponse(message="Message deleted")
 
 
 @router.get("/unread", response_model=ChatUnreadCountResponse)

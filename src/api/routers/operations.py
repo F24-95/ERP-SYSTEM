@@ -4,7 +4,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.dependencies import require_role
 from src.core.enums import UserRole
 from src.database.connection import get_db
-from src.domain.operations.crud import student_class_crud, teacher_subject_crud
 from src.domain.operations.schemas import (
     PromoteStudentRequest,
     StudentClassCreate,
@@ -41,9 +40,7 @@ async def assign_teacher(
 @router.get("/teacher-assignments", response_model=list[TeacherSubjectResponse])
 async def list_teacher_assignments(db: AsyncSession = Depends(get_db)):
     """List all teacher assignments."""
-    # `get_multi` doesn't exist on AsyncBaseCRUD; `get_all` returns (items, total).
-    items, _total = await teacher_subject_crud.get_all(db)
-    return items
+    return await EnrollmentService.list_teacher_assignments(db)
 
 
 @router.get(
@@ -108,8 +105,7 @@ async def enroll_student(
 @router.get("/student-enrollments", response_model=list[StudentClassResponse])
 async def list_student_enrollments(db: AsyncSession = Depends(get_db)):
     """List all student enrollments."""
-    items, _total = await student_class_crud.get_all(db)
-    return items
+    return await EnrollmentService.list_student_enrollments(db)
 
 
 @router.get("/student-enrollments/{enrollment_id}", response_model=StudentClassResponse)

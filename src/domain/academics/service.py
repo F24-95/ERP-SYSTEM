@@ -6,14 +6,9 @@ from src.domain.academics.crud import (
     academic_session_crud,
     class_subject_crud,
     classroom_crud,
-    subject_crud,
 )
-from src.domain.academics.models import (
-    AcademicSession,
-    ClassRoom,
-    ClassSubject,
-    Subject,
-)
+from src.domain.curriculum.crud import subject_crud
+from src.domain.academics.models import AcademicSession, ClassRoom, ClassSubject
 from src.domain.academics.schemas import (
     AcademicSessionCreate,
     AcademicSessionUpdate,
@@ -21,8 +16,6 @@ from src.domain.academics.schemas import (
     ClassRoomUpdate,
     ClassSubjectCreate,
     ClassSubjectUpdate,
-    SubjectCreate,
-    SubjectUpdate,
 )
 
 logger = get_logger(__name__)
@@ -30,8 +23,29 @@ logger = get_logger(__name__)
 
 class AcademicSessionService:
     @staticmethod
+    async def _ensure_single_current(
+        db: AsyncSession,
+        exclude_id: int | None = None,
+    ) -> None:
+        from sqlalchemy import update as sa_update
+
+        from src.domain.academics.models import AcademicSession
+
+        stmt = (
+            sa_update(AcademicSession)
+            .where(AcademicSession.is_current.is_(True))
+            .values(is_current=False)
+        )
+        if exclude_id is not None:
+            stmt = stmt.where(AcademicSession.id != exclude_id)
+        await db.execute(stmt)
+
+    @staticmethod
     async def create(db: AsyncSession, data: AcademicSessionCreate) -> AcademicSession:
-        return await academic_session_crud.create(db, data.model_dump())
+        payload = data.model_dump()
+        if payload.get("is_current"):
+            await AcademicSessionService._ensure_single_current(db)
+        return await academic_session_crud.create(db, payload)
 
     @staticmethod
     async def list(
@@ -54,6 +68,8 @@ class AcademicSessionService:
         payload = data.model_dump(exclude_unset=True)
         if not payload:
             return await academic_session_crud.get_or_raise(db, session_id)
+        if payload.get("is_current"):
+            await AcademicSessionService._ensure_single_current(db, exclude_id=session_id)
         return await academic_session_crud.update(db, session_id, payload)
 
     @staticmethod
@@ -114,37 +130,6 @@ class ClassRoomService:
         await classroom_crud.get_or_raise(db, classroom_id)
         await classroom_crud.update(db, classroom_id, {"is_active": False})
         logger.info(f"ClassRoom deactivated: id={classroom_id}")
-
-
-class SubjectService:
-    @staticmethod
-    async def create(db: AsyncSession, data: SubjectCreate) -> Subject:
-        return await subject_crud.create(db, data.model_dump())
-
-    @staticmethod
-    async def list(
-        db: AsyncSession,
-        skip: int = 0,
-        limit: int = 100,
-    ) -> tuple[list[Subject], int]:
-        return await subject_crud.get_all(db, skip=skip, limit=limit)
-
-    @staticmethod
-    async def get(db: AsyncSession, subject_id: int) -> Subject:
-        return await subject_crud.get_or_raise(db, subject_id)
-
-    @staticmethod
-    async def update(db: AsyncSession, subject_id: int, data: SubjectUpdate) -> Subject:
-        payload = data.model_dump(exclude_unset=True)
-        if not payload:
-            return await subject_crud.get_or_raise(db, subject_id)
-        return await subject_crud.update(db, subject_id, payload)
-
-    @staticmethod
-    async def deactivate(db: AsyncSession, subject_id: int) -> None:
-        await subject_crud.get_or_raise(db, subject_id)
-        await subject_crud.update(db, subject_id, {"is_active": False})
-        logger.info(f"Subject deactivated: id={subject_id}")
 
 
 class ClassSubjectService:

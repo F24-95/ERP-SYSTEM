@@ -12,8 +12,8 @@ from src.core.exceptions import (
     ResourceNotFoundException,
 )
 from src.core.logger import get_logger
-from src.domain.academics.models import Subject
-from src.domain.khan_academy.models import KaSubjectProgress, KaTopicProgress, Topic
+from src.domain.curriculum.models import Subject, Topic
+from src.domain.khan_academy.models import KaSubjectProgress, KaTopicProgress
 from src.domain.reports.crud import (
     student_activity_report_crud,
     student_report_crud,

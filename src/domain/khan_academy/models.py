@@ -1,37 +1,8 @@
-"""Khan Academy (KA) integration domain.
+"""Khan Academy (KA) integration domain (progress snapshots & activity logs).
 
-These tables (Topic, KaStudentActivity, KaSubjectActivity, KaSubjectProgress,
-KaTopicProgress) exist only in this project — there is no equivalent in the
-legacy FOLDER/ codebase (`mmmmmm`) at all. They were drafted directly against
-this project's schema as new tables (under the repo's top-level `model/`
-scratch folder) but never wired into `src/domain/` with schemas/crud/
-service/router, so there was nothing importable or usable yet. This pass
-relocates them into `src/domain/khan_academy/`, the same structure every
-other domain in this project uses, and fixes the issues found while doing so
-(see below) rather than porting business logic from a legacy source, since
-none exists for these tables.
-
-Fixes applied while relocating from the draft `model/topic.py` /
-`model/ka_progress.py`:
-  - Both files imported from `app.*` (the old sync codebase's package
-    layout) instead of `src.*` -- updated throughout.
-  - `KaStudentActivity.student_id` / `KaSubjectActivity.student_id` /
-    `KaSubjectProgress.student_id` / `KaTopicProgress.student_id` were all
-    typed `String(30)` with `ForeignKey("student_profiles.student_id")` --
-    but this project's `StudentProfile` (src/domain/users/models.py) has no
-    `student_id` string column at all (only `User.student_id` does, and
-    that's a different table). That FK would have failed at table-creation
-    time. Adapted to `Integer` FKs against `student_profiles.id`, matching
-    the same adaptation already made for chat/id_cards/search in this
-    migration.
-  - Relationships back to `StudentProfile`/`Subject` are one-directional
-    here (no `back_populates`) rather than requiring matching collection
-    attributes on those already-established models, to keep this change
-    additive and avoid touching more of the existing schema than necessary.
-    `Subject.topics` and `ClassRoom.topics`/`.zoom_files` and
-    `User.created_topics`/`.updated_topics` WERE added, since `Topic`
-    explicitly declared those back_populates targets and adding them is a
-    small, safe, additive change to those files.
+Topic was moved to src/domain/curriculum/ (Subject & Topic live together
+in a dedicated curriculum domain, same pattern as fees/exams). The Topic
+class is imported from there for relationship resolution.
 """
 
 from sqlalchemy import (
@@ -43,117 +14,12 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
-    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
-from src.core.id_generators import generate_topic_id
 from src.database.connection import Base
-from src.domain.common.mixins import ActiveMixin, TimestampMixin
-
-# =============================================================================
-# Topic  (Khan Academy curriculum topic, synced from the KA API)
-# =============================================================================
-
-
-class Topic(Base, TimestampMixin, ActiveMixin):
-    """One row = one KA topic node (e.g. "Adding within 20").
-
-    `subject_id` links the topic to the ERP Subject the KA course was
-    mapped onto. `classroom_id` is an optional denormalised pointer to the
-    classroom this topic is currently being taught in.
-
-    Attachments for a topic use the generic polymorphic Attachment table
-    (entity_type="topic", entity_id=Topic.id), the same pattern already
-    used for assignments and study material, so no direct FK is declared
-    here.
-    """
-
-    __tablename__ = "ka_topics"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    topic_id = Column(
-        String(30),
-        unique=True,
-        nullable=False,
-        default=generate_topic_id,
-        index=True,
-    )
-
-    # Raw KA topic id/slug as returned by the KA API
-    ka_topic_id = Column(String(200), unique=True, nullable=False, index=True)
-    topic_name = Column(String(200), nullable=False, index=True)
-    description = Column(Text, nullable=True)
-    display_order = Column(Integer, default=1, nullable=False)
-
-    subject_id = Column(
-        Integer,
-        ForeignKey("subjects.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    classroom_id = Column(
-        Integer,
-        ForeignKey("classroom.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-    )
-
-    created_by = Column(
-        Integer,
-        ForeignKey("users.id", ondelete="SET NULL"),
-        nullable=True,
-    )
-    updated_by = Column(
-        Integer,
-        ForeignKey("users.id", ondelete="SET NULL"),
-        nullable=True,
-    )
-
-    subject = relationship("Subject", back_populates="topics")
-    classroom = relationship("ClassRoom", back_populates="topics")
-    creator = relationship(
-        "User",
-        foreign_keys=[created_by],
-        back_populates="created_topics",
-    )
-    updater = relationship(
-        "User",
-        foreign_keys=[updated_by],
-        back_populates="updated_topics",
-    )
-
-    ka_subject_activities = relationship(
-        "KaSubjectActivity",
-        back_populates="topic",
-        cascade="all, delete-orphan",
-    )
-    ka_topic_progress_entries = relationship(
-        "KaTopicProgress",
-        back_populates="topic",
-        cascade="all, delete-orphan",
-    )
-    report_links = relationship(
-        "StudentTopicProgressReport",
-        back_populates="topic",
-        cascade="all, delete-orphan",
-    )
-
-    __table_args__ = (
-        UniqueConstraint("ka_topic_id", name="uq_ka_topic_topic_id"),
-        UniqueConstraint(
-            "subject_id",
-            "classroom_id",
-            "topic_name",
-            name="uq_topic_subject_classroom_name",
-        ),
-        Index("idx_ka_topic_subject", "subject_id"),
-        Index("idx_ka_topic_classroom", "classroom_id"),
-        Index("idx_ka_topic_name", "topic_name"),
-        Index("idx_ka_topic_active", "is_active"),
-    )
-
+from src.domain.common.mixins import TimestampMixin
 
 # =============================================================================
 # KaStudentActivity  (daily activity summary per student)

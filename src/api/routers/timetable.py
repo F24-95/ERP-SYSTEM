@@ -5,6 +5,7 @@ from src.api.dependencies import get_current_user, require_role
 from src.core.enums import UserRole
 from src.core.exceptions import ResourceNotFoundException
 from src.database.connection import get_db
+from src.domain.common.schemas import MessageResponse
 from src.domain.operations.schemas import (
     ClassTimeTableCreate,
     ClassTimeTableResponse,
@@ -63,7 +64,7 @@ async def update_weekday(
     )
 
 
-@router.delete("/weekdays/{weekday_id}", status_code=204)
+@router.delete("/weekdays/{weekday_id}", response_model=MessageResponse)
 async def deactivate_weekday(
     weekday_id: int,
     current_user=Depends(require_role(UserRole.ADMIN)),
@@ -71,6 +72,7 @@ async def deactivate_weekday(
 ):
     """Deactivate a weekday. Was missing entirely."""
     await TimetableService.deactivate_weekday(db, weekday_id)
+    return MessageResponse(message="Weekday deactivated")
 
 
 # ==================== TIME SLOTS ====================
@@ -110,7 +112,7 @@ async def update_timeslot(
     )
 
 
-@router.delete("/timeslots/{timeslot_id}", status_code=204)
+@router.delete("/timeslots/{timeslot_id}", response_model=MessageResponse)
 async def deactivate_timeslot(
     timeslot_id: int,
     current_user=Depends(require_role(UserRole.ADMIN)),
@@ -118,6 +120,7 @@ async def deactivate_timeslot(
 ):
     """Deactivate a time slot. Was missing entirely."""
     await TimetableService.deactivate_timeslot(db, timeslot_id)
+    return MessageResponse(message="Timeslot deactivated")
 
 
 # ==================== TIMETABLE ====================
@@ -276,7 +279,7 @@ async def update_availability(
     return updated
 
 
-@router.delete("/availability/{availability_id}", status_code=204)
+@router.delete("/availability/{availability_id}", response_model=MessageResponse)
 async def delete_availability(
     availability_id: int,
     current_user=Depends(require_role(UserRole.TEACHER)),
@@ -286,3 +289,4 @@ async def delete_availability(
     updated = await TimetableService.deactivate_availability(db, availability_id)
     if not updated:
         raise ResourceNotFoundException("Availability not found")
+    return MessageResponse(message="Availability deleted")

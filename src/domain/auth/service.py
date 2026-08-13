@@ -49,7 +49,9 @@ class AuthService:
             db,
             {
                 "jti": jti,
-                "expires_at": datetime.fromtimestamp(exp, tz=timezone.utc).replace(tzinfo=None),
+                "expires_at": datetime.fromtimestamp(exp, tz=timezone.utc).replace(
+                    tzinfo=None
+                ),
             },
         )
 
@@ -154,7 +156,9 @@ class AuthService:
                 db,
                 {
                     "jti": jti,
-                    "expires_at": datetime.fromtimestamp(payload["exp"], tz=timezone.utc).replace(tzinfo=None),
+                    "expires_at": datetime.fromtimestamp(
+                        payload["exp"], tz=timezone.utc
+                    ).replace(tzinfo=None),
                 },
             )
         logger.info(f"Password reset completed for user id={user.id}")
@@ -175,7 +179,8 @@ class AuthService:
                 "user_id": user.id,
                 "code_hash": hash_password(code),
                 "purpose": purpose,
-                "expires_at": datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=OTP_EXPIRE_MINUTES),
+                "expires_at": datetime.now(timezone.utc).replace(tzinfo=None)
+                + timedelta(minutes=OTP_EXPIRE_MINUTES),
                 "is_used": False,
             },
         )

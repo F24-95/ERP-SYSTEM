@@ -4,7 +4,13 @@ from src.core.enums import UserRole
 from src.core.exceptions import BusinessLogicException, ResourceNotFoundException
 from src.core.logger import get_logger
 from src.core.security import hash_password
-from src.core.utils import generate_admin_id, generate_student_id, generate_teacher_id
+from src.core.id_generators import (
+    generate_admission_number,
+    generate_admin_id,
+    generate_employee_code,
+    generate_student_id,
+    generate_teacher_id,
+)
 from src.domain.users.crud import (
     admin_profile_crud,
     student_profile_crud,
@@ -59,6 +65,7 @@ class AdminService:
             profile = StudentProfile(
                 user_id=new_user.id,
                 student_name=name_hint,
+                admission_number=generate_admission_number(),
                 created_by=current_user_id,
             )
             session.add(profile)
@@ -69,6 +76,7 @@ class AdminService:
             profile = TeacherProfile(
                 user_id=new_user.id,
                 teacher_name=name_hint,
+                employee_code=generate_employee_code(),
                 created_by=current_user_id,
             )
             session.add(profile)
@@ -118,8 +126,8 @@ class AdminService:
     @classmethod
     async def get_user(cls, session: AsyncSession, public_id: str) -> User:
         user = await user_crud.get_by_public_id(session, public_id)
-        if not user:
-            raise ResourceNotFoundException("User not found")
+        if user is None:
+            raise ResourceNotFoundException(f"User with public_id={public_id} not found.")
         return user
 
     @classmethod

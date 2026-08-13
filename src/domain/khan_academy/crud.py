@@ -4,10 +4,8 @@ from src.domain.khan_academy.models import (
     KaSubjectActivity,
     KaSubjectProgress,
     KaTopicProgress,
-    Topic,
 )
 
-topic_crud = AsyncBaseCRUD[Topic](Topic)
 ka_student_activity_crud = AsyncBaseCRUD[KaStudentActivity](KaStudentActivity)
 ka_subject_activity_crud = AsyncBaseCRUD[KaSubjectActivity](KaSubjectActivity)
 ka_subject_progress_crud = AsyncBaseCRUD[KaSubjectProgress](KaSubjectProgress)

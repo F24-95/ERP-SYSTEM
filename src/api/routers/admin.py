@@ -56,35 +56,38 @@ async def list_users(
     return items
 
 
-@router.get("/users/{public_id}", response_model=UserResponse)
+@router.get("/users/{user_id}", response_model=UserResponse)
 async def get_user(
-    public_id: str,
+    user_id: str,
     current_user: User = Depends(require_role(UserRole.ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
     """Get any user by public ID (Admin only)."""
-    return await AdminService.get_user(db, public_id)
+    return await AdminService.get_user(db, user_id)
 
 
-@router.patch("/users/{public_id}", response_model=UserResponse)
+@router.patch("/users/{user_id}", response_model=UserResponse)
 async def update_user(
-    public_id: str,
+    user_id: str,
     data: UserUpdate,
     current_user: User = Depends(require_role(UserRole.ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
     """Update any user's phone / active status (Admin only)."""
-    return await AdminService.update_user(db, public_id, data)
+    return await AdminService.update_user(db, user_id, data)
 
 
-@router.delete("/users/{public_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/users/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 async def deactivate_user(
-    public_id: str,
+    user_id: str,
     current_user: User = Depends(require_role(UserRole.ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
     """Deactivate (disable login for) any user (Admin only)."""
-    await AdminService.deactivate_user(db, public_id)
+    await AdminService.deactivate_user(db, user_id)
 
 
 # ------------------------------------------------------------------
@@ -133,7 +136,10 @@ async def update_student_profile(
     )
 
 
-@router.delete("/students/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/students/{profile_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 async def deactivate_student_profile(
     profile_id: int,
     current_user: User = Depends(require_role(UserRole.ADMIN)),
@@ -182,7 +188,10 @@ async def update_teacher_profile(
     )
 
 
-@router.delete("/teachers/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/teachers/{profile_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 async def deactivate_teacher_profile(
     profile_id: int,
     current_user: User = Depends(require_role(UserRole.ADMIN)),
@@ -238,7 +247,10 @@ async def update_admin_profile(
     )
 
 
-@router.delete("/admins/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/admins/{profile_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 async def deactivate_admin_profile(
     profile_id: int,
     current_user: User = Depends(require_role(UserRole.ADMIN)),

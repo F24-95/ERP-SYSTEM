@@ -45,7 +45,13 @@ class TestTeacherClasses:
         assert response.json() == []
 
     async def test_get_classes_with_assignment(
-        self, teacher_client: AsyncClient, teacher_user, academic_session, classroom, subject, db_session
+        self,
+        teacher_client: AsyncClient,
+        teacher_user,
+        academic_session,
+        classroom,
+        subject,
+        db_session,
     ):
         from src.domain.academics.models import ClassSubject
         from src.domain.operations.models import TeacherSubject
@@ -81,7 +87,13 @@ class TestTeacherSubjects:
         assert response.json() == []
 
     async def test_get_subjects_with_assignment(
-        self, teacher_client: AsyncClient, teacher_user, academic_session, classroom, subject, db_session
+        self,
+        teacher_client: AsyncClient,
+        teacher_user,
+        academic_session,
+        classroom,
+        subject,
+        db_session,
     ):
         from src.domain.academics.models import ClassSubject
         from src.domain.operations.models import TeacherSubject
@@ -128,30 +140,44 @@ class TestTeacherAssignments:
 
 
 class TestTeacherStudents:
-    async def test_get_class_students_no_assignment(self, teacher_client: AsyncClient, academic_session, classroom):
+    async def test_get_class_students_no_assignment(
+        self, teacher_client: AsyncClient, academic_session, classroom
+    ):
         response = await teacher_client.get(
             "/teacher/students",
-            params={"classroom_id": classroom.id, "academic_sessions_id": academic_session.id},
+            params={
+                "classroom_id": classroom.id,
+                "academic_sessions_id": academic_session.id,
+            },
         )
         assert response.status_code == 403
 
 
 class TestTeacherOperations:
-    async def test_teacher_can_list_students(self, teacher_client: AsyncClient, student_user):
+    async def test_teacher_can_list_students(
+        self, teacher_client: AsyncClient, student_user
+    ):
         response = await teacher_client.get("/admin/students")
         assert_ok(response)
 
-    async def test_teacher_can_list_teachers(self, teacher_client: AsyncClient, teacher_user):
+    async def test_teacher_can_list_teachers(
+        self, teacher_client: AsyncClient, teacher_user
+    ):
         response = await teacher_client.get("/admin/teachers")
         assert_ok(response)
 
-    async def test_teacher_cannot_delete_user(self, teacher_client: AsyncClient, student_user):
+    async def test_teacher_cannot_delete_user(
+        self, teacher_client: AsyncClient, student_user
+    ):
         response = await teacher_client.delete(f"/admin/users/{student_user.public_id}")
         assert_forbidden(response)
 
-    async def test_teacher_cannot_update_student_profile(self, teacher_client: AsyncClient, student_user, db_session):
+    async def test_teacher_cannot_update_student_profile(
+        self, teacher_client: AsyncClient, student_user, db_session
+    ):
         from sqlalchemy import select
         from src.domain.users.models import StudentProfile
+
         result = await db_session.execute(
             select(StudentProfile).filter_by(user_id=student_user.id)
         )

@@ -1,107 +1,113 @@
 """
-One-time CLI script to create the first admin account on a fresh
-deployment.
+One-time CLI script to create the first accounts on a fresh deployment.
 
-WHY THIS EXISTS AS A SCRIPT AND NOT AN API ROUTE
---------------------------------------------------
-Every user-creation path in this API (`POST /admin/user`) requires an
-existing admin to call it (`require_role(UserRole.ADMIN)`). That's
-correct and should stay that way. But it creates a chicken-and-egg
-problem on a brand new deployment: there is no admin yet, so nothing can
-call that route.
-
-A previous version of this project "solved" that by leaving
-`POST /users/` completely unauthenticated with a client-controlled
-`role` field -- which meant *anyone* could self-register as an admin at
-any time, not just during initial setup. That was a critical security
-hole and has been removed (see src/api/routers/users.py). An
-"only works if zero users exist yet" API escape hatch would still be a
-live network-reachable endpoint that has to be reasoned about
-forever -- a one-time script that a deploy operator runs directly
-against the database, and which never ships as an HTTP route, is the
-standard, safer pattern for this problem.
+Supports adding any role (admin, teacher, student).
+Safe to re-run: skips accounts whose email already exists.
 
 USAGE
 -----
-    python -m scripts.create_first_admin --email admin@school.com --phone 9999999999 --password "ChangeMe123!"
-
-Or interactively (it will prompt for anything not passed as a flag):
-
     python -m scripts.create_first_admin
 
-Safe to re-run: refuses to do anything if an admin already exists.
+Or pass details as arguments:
+    python -m scripts.create_first_admin --email admin@school.com --phone 9999999999 --password "ChangeMe123!" --role admin
 """
 
 import argparse
 import asyncio
 import getpass
-import sys
 from dotenv import load_dotenv
 
-# Load .env BEFORE any project imports that read environment variables
 load_dotenv()
+
+# Import base FIRST so every model module is registered on
+# Base.metadata before any mapper configuration runs.
+import src.database.base  # noqa: F401
 
 from sqlalchemy import select
 
 from src.database.connection import AsyncSessionLocal
-
-# Required so every domain's models.py is imported and registered on
-# Base.metadata before SQLAlchemy configures mappers below -- User has
-# relationships (e.g. to Topic) that live in other domains' model files.
-# Without this, running this script standalone (not via src.main, which
-# does its own `import src.database.base`) crashes with
-# "InvalidRequestError: ... failed to locate a name" the first time any
-# mapper touches a cross-domain relationship.
-import src.database.base  # noqa: F401
 from src.core.enums import UserRole
-from src.domain.users.models import User
-from src.domain.users.schemas import AdminUserCreate
-from src.domain.admin.service import AdminService
+from src.core.id_generators import generate_admin_id, generate_teacher_id, generate_student_id
+from src.core.security import hash_password
+from src.domain.users.models import User, AdminProfile, TeacherProfile, StudentProfile
+
+ROLE_MAP = {
+    "admin": UserRole.ADMIN,
+    "teacher": UserRole.TEACHER,
+    "student": UserRole.STUDENT,
+}
 
 
-async def _admin_already_exists(session) -> bool:
-    result = await session.execute(select(User).filter_by(role=UserRole.ADMIN))
-    return result.scalars().first() is not None
+async def create_account(email: str, phone: str, password: str, role: UserRole, name: str | None = None, super_admin: bool = False) -> None:
+    async with AsyncSessionLocal() as db:
+        existing = await db.scalar(select(User).filter_by(email=email))
+        if existing:
+            print(f"Account with email '{email}' already exists. Skipping.")
+            return
 
+        display_name = name or email.split("@")[0].replace(".", " ").replace("_", " ").title()
 
-async def create_first_admin(email: str, phone: str, password: str) -> None:
-    async with AsyncSessionLocal() as session:
-        if await _admin_already_exists(session):
-            print(
-                "An admin account already exists. Refusing to create another via this "
-                "bootstrap script -- use POST /admin/user (as an existing admin) instead."
-            )
-            sys.exit(1)
-
-        user_data = AdminUserCreate(
-            email=email, phone=phone, password=password, role=UserRole.ADMIN
+        user = User(
+            email=email,
+            phone=phone,
+            role=role,
+            password_hash=hash_password(password),
+            is_verified=True,
+            is_active=True,
         )
-        try:
-            new_admin = await AdminService.create_user_with_profile(
-                session, user_data, current_user_id=None
-            )
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
+        db.add(user)
+        await db.flush()
+        await db.refresh(user)
 
-        print(f"Admin created: {new_admin.email} (admin_id={new_admin.admin_id})")
+        if role == UserRole.ADMIN:
+            user.admin_id = generate_admin_id(user.id)
+            await db.flush()
+            await db.refresh(user)
+            db.add(AdminProfile(
+                user_id=user.id,
+                admin_name=display_name,
+                is_super_admin=super_admin,
+            ))
+
+        elif role == UserRole.TEACHER:
+            user.teacher_id = generate_teacher_id(user.id)
+            await db.flush()
+            await db.refresh(user)
+            db.add(TeacherProfile(
+                user_id=user.id,
+                teacher_name=display_name,
+            ))
+
+        elif role == UserRole.STUDENT:
+            user.student_id = generate_student_id(user.id)
+            await db.flush()
+            await db.refresh(user)
+            db.add(StudentProfile(
+                user_id=user.id,
+                student_name=display_name,
+            ))
+
+        await db.commit()
+        print(f"{role.value} created: {user.email} (id={getattr(user, f'{role.value}_id')})")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Create the first admin account.")
-    parser.add_argument("--email", help="Admin email")
-    parser.add_argument("--phone", help="Admin phone number")
-    parser.add_argument(
-        "--password", help="Admin password (min 8 chars). Omit to be prompted securely."
-    )
+    parser = argparse.ArgumentParser(description="Create accounts (admin/teacher/student).")
+    parser.add_argument("--email", help="Account email")
+    parser.add_argument("--phone", help="Phone number")
+    parser.add_argument("--password", help="Password (min 8 chars). Omit to be prompted.")
+    parser.add_argument("--role", choices=list(ROLE_MAP), default="admin", help="Account role (default: admin)")
+    parser.add_argument("--name", help="Display name (auto-derived from email if omitted)")
+    parser.add_argument("--super-admin", action="store_true", help="Mark admin as super admin")
     args = parser.parse_args()
 
-    email = args.email or input("Admin email: ").strip()
-    phone = args.phone or input("Admin phone: ").strip()
-    password = args.password or getpass.getpass("Admin password: ")
+    email = args.email or input("Email: ").strip()
+    phone = args.phone or input("Phone: ").strip()
+    password = args.password or getpass.getpass("Password: ")
+    role = ROLE_MAP[args.role]
+    name = args.name or None
 
-    asyncio.run(create_first_admin(email, phone, password))
+    asyncio.run(create_account(email, phone, password, role, name, super_admin=args.super_admin))
 
 
 if __name__ == "__main__":

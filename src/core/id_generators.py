@@ -13,9 +13,11 @@ import uuid
 
 from src.core.enums import (
     ADMIN_PREFIX,
+    ADMISSION_PREFIX,
     ASSIGNMENT_PREFIX,
     AVAILABILITY_PREFIX,
     CHAT_PREFIX,
+    EMPLOYEE_PREFIX,
     EXAM_PREFIX,
     FEE_PREFIX,
     MATERIAL_PREFIX,
@@ -112,6 +114,14 @@ def generate_topic_id() -> str:
 
 def generate_zoom_file_id() -> str:
     return f"{ZOOM_FILE_PREFIX}-{random_code(8)}"
+
+
+def generate_employee_code() -> str:
+    return f"{EMPLOYEE_PREFIX}-{random_code(8)}"
+
+
+def generate_admission_number() -> str:
+    return f"{ADMISSION_PREFIX}-{random_code(8)}"
 
 
 def generate_timetable_id(academic_sessions_id: int, sequence: int) -> str:

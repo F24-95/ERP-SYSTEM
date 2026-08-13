@@ -16,7 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.enums import AssignmentStatus, ExamStatus
 from src.core.exceptions import ResourceNotFoundException
-from src.domain.academics.models import AcademicSession, ClassRoom, Subject
+from src.domain.academics.models import AcademicSession, ClassRoom
+from src.domain.curriculum.models import Subject
 from src.domain.assignments.models import Assignment
 from src.domain.exams.models import Exam
 from src.domain.fees.models import Fee

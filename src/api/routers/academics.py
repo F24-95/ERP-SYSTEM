@@ -14,16 +14,14 @@ from src.domain.academics.schemas import (
     ClassSubjectCreate,
     ClassSubjectResponse,
     ClassSubjectUpdate,
-    SubjectCreate,
-    SubjectResponse,
-    SubjectUpdate,
 )
 from src.domain.academics.service import (
     AcademicSessionService,
     ClassRoomService,
     ClassSubjectService,
-    SubjectService,
 )
+from src.domain.curriculum.schemas import SubjectCreate, SubjectResponse, SubjectUpdate
+from src.domain.curriculum.service import SubjectService
 
 router = APIRouter(prefix="/academics", tags=["Academics"])
 
@@ -70,7 +68,10 @@ async def update_session(
     return await AcademicSessionService.update(db, session_id, data)
 
 
-@router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/sessions/{session_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 async def deactivate_session(
     session_id: int,
     db: AsyncSession = Depends(get_db),
@@ -128,65 +129,16 @@ async def update_classroom(
     return await ClassRoomService.update(db, classroom_id, data)
 
 
-@router.delete("/classrooms/{classroom_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/classrooms/{classroom_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 async def deactivate_classroom(
     classroom_id: int,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role(UserRole.ADMIN)),
 ):
     await ClassRoomService.deactivate(db, classroom_id)
-
-
-# ============================================================
-# Subjects
-# ============================================================
-
-
-@router.post(
-    "/subjects",
-    response_model=SubjectResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-async def create_subject(
-    data: SubjectCreate,
-    db: AsyncSession = Depends(get_db),
-    current_user=Depends(require_role(UserRole.ADMIN, UserRole.TEACHER)),
-):
-    return await SubjectService.create(db, data)
-
-
-@router.get("/subjects", response_model=list[SubjectResponse])
-async def list_subjects(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
-    db: AsyncSession = Depends(get_db),
-):
-    items, _total = await SubjectService.list(db, skip=skip, limit=limit)
-    return items
-
-
-@router.get("/subjects/{subject_id}", response_model=SubjectResponse)
-async def get_subject(subject_id: int, db: AsyncSession = Depends(get_db)):
-    return await SubjectService.get(db, subject_id)
-
-
-@router.put("/subjects/{subject_id}", response_model=SubjectResponse)
-async def update_subject(
-    subject_id: int,
-    data: SubjectUpdate,
-    db: AsyncSession = Depends(get_db),
-    current_user=Depends(require_role(UserRole.ADMIN, UserRole.TEACHER)),
-):
-    return await SubjectService.update(db, subject_id, data)
-
-
-@router.delete("/subjects/{subject_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def deactivate_subject(
-    subject_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user=Depends(require_role(UserRole.ADMIN)),
-):
-    await SubjectService.deactivate(db, subject_id)
 
 
 # ============================================================
@@ -257,3 +209,58 @@ async def deactivate_class_subject(
     current_user=Depends(require_role(UserRole.ADMIN)),
 ):
     await ClassSubjectService.deactivate(db, class_subject_id)
+
+
+# ============================================================
+# Subjects
+# ============================================================
+
+
+@router.post(
+    "/subjects",
+    response_model=SubjectResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_subject(
+    data: SubjectCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_role(UserRole.ADMIN, UserRole.TEACHER)),
+):
+    return await SubjectService.create(db, data)
+
+
+@router.get("/subjects", response_model=list[SubjectResponse])
+async def list_subjects(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+):
+    items, _total = await SubjectService.list(db, skip=skip, limit=limit)
+    return items
+
+
+@router.get("/subjects/{subject_id}", response_model=SubjectResponse)
+async def get_subject(subject_id: int, db: AsyncSession = Depends(get_db)):
+    return await SubjectService.get(db, subject_id)
+
+
+@router.put("/subjects/{subject_id}", response_model=SubjectResponse)
+async def update_subject(
+    subject_id: int,
+    data: SubjectUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_role(UserRole.ADMIN, UserRole.TEACHER)),
+):
+    return await SubjectService.update(db, subject_id, data)
+
+
+@router.delete(
+    "/subjects/{subject_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def deactivate_subject(
+    subject_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_role(UserRole.ADMIN)),
+):
+    await SubjectService.deactivate(db, subject_id)

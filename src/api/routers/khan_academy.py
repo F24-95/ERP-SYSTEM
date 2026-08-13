@@ -15,77 +15,10 @@ from src.domain.khan_academy.schemas import (
     KaTopicProgressResponse,
     StudentKaActivitySummaryResponse,
     StudentKaProgressSummaryResponse,
-    TopicCreate,
-    TopicResponse,
-    TopicUpdate,
 )
-from src.domain.khan_academy.service import KaProgressService, TopicService
+from src.domain.khan_academy.service import KaProgressService
 
 router = APIRouter(prefix="/khan-academy", tags=["Khan Academy"])
-
-
-# ==================== TOPICS ====================
-
-
-@router.post("/topics", response_model=TopicResponse)
-async def create_topic(
-    data: TopicCreate,
-    current_user=Depends(require_role(UserRole.ADMIN, UserRole.TEACHER)),
-    db: AsyncSession = Depends(get_db),
-):
-    """Create a KA topic catalog entry."""
-    return await TopicService.create_topic(db, data.model_dump())
-
-
-@router.get("/topics", response_model=list[TopicResponse])
-async def list_topics(
-    subject_id: int | None = None,
-    classroom_id: int | None = None,
-    current_user=Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """List topics, optionally filtered by subject/classroom."""
-    return await TopicService.list_topics(
-        db,
-        subject_id=subject_id,
-        classroom_id=classroom_id,
-    )
-
-
-@router.get("/topics/{topic_id}", response_model=TopicResponse)
-async def get_topic(
-    topic_id: int,
-    current_user=Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Get a topic by ID."""
-    return await TopicService.get_topic(db, topic_id)
-
-
-@router.put("/topics/{topic_id}", response_model=TopicResponse)
-async def update_topic(
-    topic_id: int,
-    data: TopicUpdate,
-    current_user=Depends(require_role(UserRole.ADMIN, UserRole.TEACHER)),
-    db: AsyncSession = Depends(get_db),
-):
-    """Update a topic."""
-    return await TopicService.update_topic(
-        db,
-        topic_id,
-        data.model_dump(exclude_unset=True),
-    )
-
-
-@router.delete("/topics/{topic_id}")
-async def delete_topic(
-    topic_id: int,
-    current_user=Depends(require_role(UserRole.ADMIN)),
-    db: AsyncSession = Depends(get_db),
-):
-    """Soft-delete a topic."""
-    await TopicService.delete_topic(db, topic_id)
-    return {"success": True, "message": "Topic deactivated"}
 
 
 # ==================== KA PROGRESS ====================

@@ -1,10 +1,5 @@
 from src.database.base_crud import AsyncBaseCRUD
-from src.domain.academics.models import (
-    AcademicSession,
-    ClassRoom,
-    ClassSubject,
-    Subject,
-)
+from src.domain.academics.models import AcademicSession, ClassRoom, ClassSubject
 
 
 class AcademicSessionCRUD(AsyncBaseCRUD[AcademicSession]):
@@ -17,11 +12,6 @@ class ClassRoomCRUD(AsyncBaseCRUD[ClassRoom]):
         super().__init__(ClassRoom)
 
 
-class SubjectCRUD(AsyncBaseCRUD[Subject]):
-    def __init__(self):
-        super().__init__(Subject)
-
-
 class ClassSubjectCRUD(AsyncBaseCRUD[ClassSubject]):
     def __init__(self):
         super().__init__(ClassSubject)
@@ -29,5 +19,4 @@ class ClassSubjectCRUD(AsyncBaseCRUD[ClassSubject]):
 
 academic_session_crud = AcademicSessionCRUD()
 classroom_crud = ClassRoomCRUD()
-subject_crud = SubjectCRUD()
 class_subject_crud = ClassSubjectCRUD()

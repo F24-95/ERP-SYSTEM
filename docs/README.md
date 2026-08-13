@@ -103,7 +103,7 @@ src/
 | Layer | Choice |
 |---|---|
 | Framework | FastAPI (async) |
-| ORM | SQLAlchemy 2.0, async engine (`asyncpg` for Postgres / `aiosqlite` for tests) |
+| ORM | SQLAlchemy 2.0, async engine (`asyncpg` for Postgres) |
 | Validation | Pydantic v2 |
 | Auth | JWT (access + refresh + password-reset, each with its own `type` claim), OAuth2 password flow, `passlib`/`bcrypt` hashing |
 | Migrations | Alembic (`alembic/`, `alembic.ini`) |
@@ -126,24 +126,6 @@ uvicorn src.main:app --reload # start the API
 ```
 
 Interactive API docs: `http://localhost:8000/docs`
-
-### Running the test/verification pass without a real database
-
-Every domain's tables can be created directly against an in-memory SQLite
-DB for a quick sanity check (no Postgres needed):
-
-```python
-from sqlalchemy.ext.asyncio import create_async_engine
-from src.database.base import Base
-import asyncio
-
-async def main():
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-asyncio.run(main())
-```
 
 ---
 

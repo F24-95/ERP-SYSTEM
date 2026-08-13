@@ -35,10 +35,6 @@ router = APIRouter(prefix="/users", tags=["Users"])
 # ------------------------------------------------------------------
 
 
-# NOTE: /me must be registered before /{public_id}, otherwise FastAPI would
-# match "GET /users/me" against the "/{public_id}" route first (same HTTP
-# method, /me looks like a valid path param value) and this endpoint would
-# be permanently unreachable.
 @router.get("/me", response_model=UserResponse)
 async def get_my_profile(current_user: User = Depends(get_current_user)):
     """Get the currently authenticated user's own profile."""
@@ -56,21 +52,17 @@ async def update_my_profile(
     Self-service only: `is_active` is intentionally dropped here even
     though it's on the shared `UserUpdate` schema -- a user must not be
     able to (de)activate their own account. Admin-driven updates to
-    is_active (and everything else) go through PATCH /admin/users/{public_id}.
+    is_active (and everything else) go through PATCH /admin/users/{user_id}.
     """
     update_data = data.model_dump(exclude_unset=True, exclude={"is_active"})
     return await UserService.update_user(db, current_user, update_data)
 
 
-@router.get("/{public_id}", response_model=UserResponse)
+@router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
-    public_id: str,
+    user_id: str,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get user by public ID. Requires authentication -- was previously
-    open to anyone with a guessable/leaked public_id (a UUID, so not
-    trivially guessable, but there's no reason this should be
-    unauthenticated when nothing else in the API is).
-    """
-    return await UserService.get_user(db, public_id)
+    """Get user by public ID. Requires authentication."""
+    return await UserService.get_user(db, user_id)

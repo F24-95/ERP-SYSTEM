@@ -100,35 +100,6 @@ class ClassRoom(Base, TimestampMixin, ActiveMixin, AuditMixin):
     )
 
 
-class Subject(Base, TimestampMixin, ActiveMixin, AuditMixin):
-    __tablename__ = "subjects"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    subject_code = Column(String(30), nullable=False, unique=True, index=True)
-    subject_name = Column(String(100), nullable=False, index=True)
-    description = Column(Text, nullable=True)
-    display_order = Column(Integer, default=1, nullable=False)
-    subject_type = Column(String(20), default="Core", nullable=False)
-
-    class_subjects = relationship(
-        "ClassSubject",
-        back_populates="subject",
-        cascade="all, delete-orphan",
-    )
-    topics = relationship(
-        "Topic",
-        back_populates="subject",
-        cascade="all, delete-orphan",
-    )
-
-    __table_args__ = (
-        UniqueConstraint("subject_name", name="uq_subject_name"),
-        UniqueConstraint("subject_code", name="uq_subject_code"),
-        Index("idx_subject_name", "subject_name"),
-        Index("idx_subject_active", "is_active"),
-    )
-
-
 class ClassSubject(Base, TimestampMixin, ActiveMixin, AuditMixin):
     __tablename__ = "class_subjects"
 

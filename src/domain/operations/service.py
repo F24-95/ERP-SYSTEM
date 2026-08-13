@@ -15,8 +15,8 @@ from src.domain.academics.models import (
     AcademicSession,
     ClassRoom,
     ClassSubject,
-    Subject,
 )
+from src.domain.curriculum.models import Subject
 from src.domain.operations.crud import (
     attendance_crud,
     availability_crud,
@@ -117,6 +117,16 @@ class EnrollmentService:
     # student enrollment, and no way to undo either (unassign/unenroll).
     # Once created, both were permanent with zero API to reverse them.
     # ------------------------------------------------------------------
+
+    @staticmethod
+    async def list_teacher_assignments(db: AsyncSession) -> list[TeacherSubject]:
+        items, _total = await teacher_subject_crud.get_all(db)
+        return items
+
+    @staticmethod
+    async def list_student_enrollments(db: AsyncSession) -> list[StudentClass]:
+        items, _total = await student_class_crud.get_all(db)
+        return items
 
     @staticmethod
     async def get_teacher_assignment(

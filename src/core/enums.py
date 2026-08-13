@@ -27,6 +27,8 @@ AVAILABILITY_PREFIX = "TA"
 REGISTRATION_PREFIX = "REG"
 TOPIC_PREFIX = "TPC"
 ZOOM_FILE_PREFIX = "ZMF"
+EMPLOYEE_PREFIX = "EMP"
+ADMISSION_PREFIX = "ADN"
 
 # ============================================================
 # ENUMS

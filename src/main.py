@@ -75,6 +75,7 @@ def create_app() -> FastAPI:
     from src.api.routers.attachments import router as attachments_router
     from src.api.routers.auth import router as auth_router
     from src.api.routers.chat import router as chat_router
+    from src.api.routers.curriculum import router as curriculum_router
     from src.api.routers.daily_class import router as daily_class_router
     from src.api.routers.dashboard import router as dashboard_router
     from src.api.routers.exams import router as exams_router
@@ -109,6 +110,7 @@ def create_app() -> FastAPI:
     app.include_router(daily_class_router)
     app.include_router(timetable_router)
     app.include_router(chat_router)
+    app.include_router(curriculum_router)
     app.include_router(id_cards_router)
     app.include_router(search_router)
     app.include_router(khan_academy_router)
@@ -137,6 +139,8 @@ def create_app() -> FastAPI:
         # fight each other.
         if os.getenv("AUTO_CREATE_TABLES", "true").lower() == "true":
             async with engine.begin() as conn:
+                from sqlalchemy import text
+                await conn.execute(text("CREATE SCHEMA IF NOT EXISTS public"))
                 await conn.run_sync(Base.metadata.create_all)
             logger.info("Database tables ensured via Base.metadata.create_all()")
 

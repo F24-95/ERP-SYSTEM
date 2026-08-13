@@ -7,6 +7,7 @@ from src.api.dependencies import get_current_user, require_role
 from src.core.enums import UserRole
 from src.core.exceptions import ResourceNotFoundException
 from src.database.connection import get_db
+from src.domain.common.schemas import MessageResponse
 from src.domain.operations.schemas import (
     DailyClassCreate,
     DailyClassResponse,
@@ -167,7 +168,7 @@ async def update_attendance_record(
     )
 
 
-@router.delete("/students/{record_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/students/{record_id}", response_model=MessageResponse)
 async def delete_attendance_record(
     record_id: int,
     current_user=Depends(get_current_user),
@@ -177,6 +178,7 @@ async def delete_attendance_record(
     student). Was missing entirely.
     """
     await DailyClassService.delete_attendance_record(db, record_id, current_user)
+    return MessageResponse(message="Attendance record deleted")
 
 
 # ============================================================

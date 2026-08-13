@@ -7,7 +7,6 @@ from typing import Any
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -24,10 +23,13 @@ from src.main import create_app
 
 from src.core.enums import UserRole
 from src.domain.operations.models import TimeSlot, WeekDay
-from src.domain.academics.models import AcademicSession, ClassRoom, ClassSubject, Subject
+from src.domain.academics.models import AcademicSession, ClassRoom
+from src.domain.curriculum.models import Subject
 from src.domain.users.models import AdminProfile, StudentProfile, TeacherProfile, User
 
-TEST_DATABASE_URL = "postgresql+asyncpg://postgres:Faizan9517@localhost:5432/faizan20_test"
+TEST_DATABASE_URL = (
+    "postgresql+asyncpg://postgres:Faizan9517@localhost:5432/faizan20_test"
+)
 DEFAULT_PASSWORD = "TestPass123!"
 
 
@@ -47,8 +49,12 @@ async def engine():
 
     async with AsyncSession(engine) as session:
         for code, name, order in [
-            ("MON", "Monday", 1), ("TUE", "Tuesday", 2), ("WED", "Wednesday", 3),
-            ("THU", "Thursday", 4), ("FRI", "Friday", 5), ("SAT", "Saturday", 6),
+            ("MON", "Monday", 1),
+            ("TUE", "Tuesday", 2),
+            ("WED", "Wednesday", 3),
+            ("THU", "Thursday", 4),
+            ("FRI", "Friday", 5),
+            ("SAT", "Saturday", 6),
             ("SUN", "Sunday", 7),
         ]:
             session.add(WeekDay(day_code=code, day_name=name, display_order=order))
@@ -61,11 +67,17 @@ async def engine():
             ("SLOT06", "Period 5", time(11, 15), time(12, 0), 45, 6, False),
             ("SLOT07", "Period 6", time(12, 0), time(12, 45), 45, 7, False),
         ]:
-            session.add(TimeSlot(
-                slot_code=code, slot_name=name,
-                start_time=start, end_time=end,
-                duration_minutes=dur, display_order=order, is_break=is_break,
-            ))
+            session.add(
+                TimeSlot(
+                    slot_code=code,
+                    slot_name=name,
+                    start_time=start,
+                    end_time=end,
+                    duration_minutes=dur,
+                    display_order=order,
+                    is_break=is_break,
+                )
+            )
         await session.commit()
 
     yield engine
@@ -90,6 +102,7 @@ async def db_session(engine) -> AsyncGenerator[AsyncSession, None]:
 async def override_get_db(db_session: AsyncSession):
     async def _override():
         yield db_session
+
     return _override
 
 
@@ -128,7 +141,9 @@ async def _create_user(
     return user
 
 
-async def _create_admin_profile(session: AsyncSession, user: User, admin_name: str = "Test Admin") -> AdminProfile:
+async def _create_admin_profile(
+    session: AsyncSession, user: User, admin_name: str = "Test Admin"
+) -> AdminProfile:
     profile = AdminProfile(user_id=user.id, admin_name=admin_name)
     session.add(profile)
     await session.flush()
@@ -226,19 +241,25 @@ async def student_headers(student_token: str) -> dict[str, str]:
 
 
 @pytest_asyncio.fixture
-async def admin_client(client: AsyncClient, admin_headers: dict[str, str]) -> AsyncClient:
+async def admin_client(
+    client: AsyncClient, admin_headers: dict[str, str]
+) -> AsyncClient:
     client.headers.update(admin_headers)
     return client
 
 
 @pytest_asyncio.fixture
-async def teacher_client(client: AsyncClient, teacher_headers: dict[str, str]) -> AsyncClient:
+async def teacher_client(
+    client: AsyncClient, teacher_headers: dict[str, str]
+) -> AsyncClient:
     client.headers.update(teacher_headers)
     return client
 
 
 @pytest_asyncio.fixture
-async def student_client(client: AsyncClient, student_headers: dict[str, str]) -> AsyncClient:
+async def student_client(
+    client: AsyncClient, student_headers: dict[str, str]
+) -> AsyncClient:
     client.headers.update(student_headers)
     return client
 
@@ -260,7 +281,9 @@ async def academic_session(db_session: AsyncSession) -> AcademicSession:
 
 
 @pytest_asyncio.fixture
-async def classroom(academic_session: AcademicSession, db_session: AsyncSession) -> ClassRoom:
+async def classroom(
+    academic_session: AcademicSession, db_session: AsyncSession
+) -> ClassRoom:
     cls = ClassRoom(
         class_code="CLS-10",
         class_name="Class 10",
