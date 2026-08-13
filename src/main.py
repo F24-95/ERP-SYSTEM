@@ -9,9 +9,9 @@ from dotenv import load_dotenv
 # that call os.getenv(), so that all configs read from .env properly.
 load_dotenv()
 
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi import FastAPI, Request  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from starlette.middleware.base import BaseHTTPMiddleware  # noqa: E402
 
 # Importing src.database.base (not just src.database.connection) is required
 # here: it pulls in every domain's models.py so Base.metadata is fully
@@ -20,10 +20,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 # it yet if this module happens to import before any router/service chain
 # does — so this import must stay even though nothing in it is referenced
 # directly.
-import src.database.base  # noqa: F401
-from src.core.exceptions import BaseDomainException, global_exception_handler
-from src.core.logger import get_logger, request_id_ctx
-from src.database.connection import AsyncSessionLocal, Base, engine
+import src.database.base  # noqa: F401, E402
+from src.core.exceptions import BaseDomainException, global_exception_handler  # noqa: E402
+from src.core.logger import get_logger, request_id_ctx  # noqa: E402
+from src.database.connection import AsyncSessionLocal, Base, engine  # noqa: E402
 
 logger = get_logger(__name__)
 
