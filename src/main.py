@@ -81,6 +81,7 @@ def create_app() -> FastAPI:
     from src.api.routers.exams import router as exams_router
     from src.api.routers.fees import router as fees_router
     from src.api.routers.id_cards import router as id_cards_router
+    from src.api.routers.integration import router as integration_router
     from src.api.routers.khan_academy import router as khan_academy_router
     from src.api.routers.notices import router as notices_router
     from src.api.routers.operations import router as operations_router
@@ -95,6 +96,7 @@ def create_app() -> FastAPI:
     from src.api.routers.teacher import router as teacher_router
     from src.api.routers.timetable import router as timetable_router
     from src.api.routers.users import router as users_router
+    from src.api.routers.webhooks import router as webhooks_router
     from src.api.routers.zoom import router as zoom_router
 
     app.include_router(auth_router)
@@ -105,6 +107,8 @@ def create_app() -> FastAPI:
     app.include_router(fees_router)
     app.include_router(exams_router)
     app.include_router(assignments_router)
+    app.include_router(integration_router)
+    app.include_router(webhooks_router)
     app.include_router(study_material_router)
     app.include_router(notices_router)
     app.include_router(daily_class_router)

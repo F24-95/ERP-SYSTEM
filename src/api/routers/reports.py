@@ -6,6 +6,7 @@ from src.api.dependencies import get_current_user, require_role
 from src.core.enums import UserRole
 from src.core.exceptions import ResourceNotFoundException
 from src.database.connection import get_db
+from src.domain.exam_engine.service import ExamEngineIntegrationService
 from src.domain.reports.schemas import (
     StudentActivityReportCreate,
     StudentActivityReportResponse,
@@ -57,6 +58,17 @@ async def generate_report(
         current_user,
     )
     return _to_response(report)
+
+
+@router.get("/exam-engine", tags=["Exam Engine Integration"])
+async def exam_engine_report(
+    current_user=Depends(require_role(UserRole.ADMIN)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Assessment-platform (ns-exam) summary report: webhook-stored report
+    and at-risk data surfaced in the ERP from the Exam Engine.
+    """
+    return await ExamEngineIntegrationService.get_dashboard_summary(db)
 
 
 @router.get("/student/{student_profile_id}", response_model=list[StudentReportResponse])

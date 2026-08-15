@@ -46,8 +46,9 @@ AsyncSessionLocal = async_sessionmaker(
     bind=engine, class_=AsyncSession, expire_on_commit=False
 )
 
-# Import Base metadata
-from src.database.base import Base
+# Import Base metadata (module import side-effect registers every model on Base.metadata)
+import src.database.base  # noqa: F401
+from src.database.connection import Base
 
 TABLES = Base.metadata.tables
 

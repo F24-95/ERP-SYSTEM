@@ -333,6 +333,12 @@ class DashboardService:
             .all(),
         )
 
+        # ns-exam (Exam Engine) integration data — surfaced from the webhook
+        # records the ERP receives from the assessment platform.
+        from src.domain.exam_engine.service import ExamEngineIntegrationService
+
+        exam_engine = await ExamEngineIntegrationService.get_dashboard_summary(db)
+
         return {
             "system": {
                 "total_user": total_users,
@@ -348,6 +354,7 @@ class DashboardService:
                 "total_classes": session_classes,
                 "total_students": session_students,
             },
+            "exam_engine": exam_engine,
             "recent_activity": {
                 "recent_user": [
                     {

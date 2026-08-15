@@ -18,6 +18,7 @@ import src.domain.auth.models  # noqa: F401
 import src.domain.chat.models  # noqa: F401
 import src.domain.curriculum.models  # noqa: F401
 import src.domain.exams.models  # noqa: F401
+import src.domain.exam_engine.models  # noqa: F401
 import src.domain.fees.models  # noqa: F401
 import src.domain.id_cards.models  # noqa: F401
 import src.domain.khan_academy.models  # noqa: F401
