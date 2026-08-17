@@ -33,28 +33,31 @@ from src.domain.users.models import StudentProfile, TeacherProfile, User
 
 class DashboardService:
     @staticmethod
-    async def _get_current_session(db: AsyncSession) -> AcademicSession:
-        session = await db.scalar(select(AcademicSession).filter_by(is_current=True))
-        if not session:
-            raise ResourceNotFoundException("No current academic session found")
-        return session
-
-    @staticmethod
     async def get_student_dashboard(db: AsyncSession, user_id: int) -> dict[str, Any]:
         student = await db.scalar(select(StudentProfile).filter_by(user_id=user_id))
         if not student:
             raise ResourceNotFoundException("Student profile not found")
 
-        current_session = await DashboardService._get_current_session(db)
-
-        student_class = await db.scalar(
-            select(StudentClass).filter_by(
-                student_id=user_id,
-                academic_sessions_id=current_session.id,
-            ),
+        current_session = await db.scalar(
+            select(AcademicSession).filter_by(is_current=True),
         )
+
+        student_class = None
+        if current_session:
+            student_class = await db.scalar(
+                select(StudentClass).filter_by(
+                    student_id=user_id,
+                    academic_sessions_id=current_session.id,
+                ),
+            )
         if not student_class:
-            raise ResourceNotFoundException("Student not enrolled in current session")
+            student_class = await db.scalar(
+                select(StudentClass)
+                .filter_by(student_id=user_id)
+                .order_by(StudentClass.academic_sessions_id.desc()),
+            )
+        if not student_class:
+            raise ResourceNotFoundException("Student is not enrolled in any session")
 
         attendance = await db.scalar(
             select(StudentAttendance).filter_by(student_class_id=student_class.id),
@@ -154,20 +157,47 @@ class DashboardService:
         if not teacher:
             raise ResourceNotFoundException("Teacher profile not found")
 
-        current_session = await DashboardService._get_current_session(db)
-
-        teacher_subjects = list(
-            (
-                await db.execute(
-                    select(TeacherSubject).filter_by(
-                        teacher_id=user_id,
-                        academic_sessions_id=current_session.id,
-                    ),
-                )
-            )
-            .scalars()
-            .all(),
+        current_session = await db.scalar(
+            select(AcademicSession).filter_by(is_current=True),
         )
+
+        teacher_subjects = []
+        if current_session:
+            teacher_subjects = list(
+                (
+                    await db.execute(
+                        select(TeacherSubject).filter_by(
+                            teacher_id=user_id,
+                            academic_sessions_id=current_session.id,
+                        ),
+                    )
+                )
+                .scalars()
+                .all(),
+            )
+        if not teacher_subjects:
+            # Fall back to the most recent session where the teacher has any
+            # subject assignment so the dashboard isn't empty for teachers
+            # whose records live outside the "current" session.
+            last_session_id = await db.scalar(
+                select(TeacherSubject.academic_sessions_id)
+                .filter_by(teacher_id=user_id)
+                .order_by(TeacherSubject.academic_sessions_id.desc())
+                .limit(1),
+            )
+            if last_session_id:
+                teacher_subjects = list(
+                    (
+                        await db.execute(
+                            select(TeacherSubject).filter_by(
+                                teacher_id=user_id,
+                                academic_sessions_id=last_session_id,
+                            ),
+                        )
+                    )
+                    .scalars()
+                    .all(),
+                )
         class_ids = [ts.classroom_id for ts in teacher_subjects]
         teacher_subject_ids = [ts.id for ts in teacher_subjects]
 

@@ -216,7 +216,11 @@ async def seed_all():
         for t in all_tables:
             if t == "alembic_version":
                 continue
-            await s.execute(text(f"TRUNCATE TABLE {t} RESTART IDENTITY CASCADE"))
+            try:
+                await s.execute(text(f"TRUNCATE TABLE {t} RESTART IDENTITY CASCADE"))
+            except Exception:
+                await s.rollback()
+                print(f"[WARN] Could not truncate {t} (table may not exist in DB)")
         await s.commit()
         print("[OK] All tables truncated")
 
@@ -232,7 +236,7 @@ async def seed_all():
                 "email": f"admin{i + 1}@school.com",
                 "phone": f"9876543{i + 1:03d}",
             }
-            for i in range(2)
+            for i in range(3)
         ]
         teachers_data = [
             {
@@ -240,7 +244,7 @@ async def seed_all():
                 "email": f"teacher{i + 1}@school.com",
                 "phone": f"9876543{i + 3:03d}",
             }
-            for i in range(4)
+            for i in range(6)
         ]
         students_data = [
             {
@@ -248,7 +252,7 @@ async def seed_all():
                 "email": f"student{i + 1}@school.com",
                 "phone": f"9876543{i + 7:03d}",
             }
-            for i in range(14)
+            for i in range(25)
         ]
         parents_data = [
             {"email": f"parent{i + 1}@school.com", "phone": f"9876543{i + 21:03d}"}
@@ -427,7 +431,7 @@ async def seed_all():
         # ════════════════════════════════════════════════════════════════
         # 6. PROFILES
         # ════════════════════════════════════════════════════════════════
-        for i, uid in enumerate(admin_ids[:2]):
+        for i, uid in enumerate(admin_ids[:3]):
             await insert_one(
                 s,
                 "admin_profiles",
@@ -439,7 +443,7 @@ async def seed_all():
                 created_at=now,
                 updated_at=now,
             )
-        for i, uid in enumerate(teacher_ids[:4]):
+        for i, uid in enumerate(teacher_ids[:6]):
             await insert_one(
                 s,
                 "teacher_profiles",
@@ -461,7 +465,7 @@ async def seed_all():
                 created_at=now,
                 updated_at=now,
             )
-        for i, uid in enumerate(student_ids[:14]):
+        for i, uid in enumerate(student_ids[:25]):
             await insert_one(
                 s,
                 "student_profiles",
@@ -533,7 +537,7 @@ async def seed_all():
         # ════════════════════════════════════════════════════════════════
         ts_teach_rows = []
         used_combos = set()
-        for tid in teacher_ids[:4]:
+        for tid in teacher_ids[:6]:
             count = 0
             shuffled = cs_all.copy()
             shuffle(shuffled)
@@ -571,7 +575,7 @@ async def seed_all():
         # ════════════════════════════════════════════════════════════════
         stuclass = []
         roll_tracker = {}  # (sess_id, classroom_id) -> set of roll_numbers
-        for i, uid in enumerate(student_ids[:14]):
+        for i, uid in enumerate(student_ids[:25]):
             cl = choice(cl_rows)
             key = (cl.academic_sessions_id, cl.id)
             if key not in roll_tracker:
@@ -1117,7 +1121,7 @@ async def seed_all():
         # 34-39. ZOOM
         # ════════════════════════════════════════════════════════════════
         z_uuids = []
-        for i in range(10):
+        for i in range(20):
             muid = str(uuid4())
             z_uuids.append(muid)
             start = now - timedelta(days=randint(1, 60), hours=randint(1, 12))
@@ -1242,13 +1246,13 @@ async def seed_all():
         # 40-43. PROCESSED + RAW MEETINGS
         # ════════════════════════════════════════════════════════════════
         pm_ids = []
-        for i in range(10):
+        for i in range(20):
             m_start = now - timedelta(days=randint(1, 30))
             await insert_one(
                 s,
                 "processed_meetings",
                 meeting_id=str(randint(10000000000, 99999999999)),
-                uuid=choice(z_uuids),
+                uuid=str(uuid4()),
                 topic=f"Processed Meeting {i + 1}",
                 start_time=m_start,
                 end_time=m_start + timedelta(minutes=randint(30, 90)),
@@ -1278,7 +1282,7 @@ async def seed_all():
             )
 
         rm_ids = []
-        for i in range(10):
+        for i in range(20):
             m_start = now - timedelta(days=randint(1, 60))
             await insert_one(
                 s,
@@ -1395,7 +1399,7 @@ async def seed_all():
         # ════════════════════════════════════════════════════════════════
         # 50. STUDENT PROMOTION HISTORY
         # ════════════════════════════════════════════════════════════════
-        for i in range(15):
+        for i in range(20):
             sc = choice(sc_rows)
             f_sess = choice(session_ids_all)
             t_sess = choice([s for s in session_ids_all if s != f_sess])
@@ -1415,7 +1419,45 @@ async def seed_all():
                 created_at=now,
                 updated_at=now,
             )
-        print("[OK] Inserted 15 promotion history records")
+        print("[OK] Inserted 20 promotion history records")
+
+        # ══════════════════════════════════════════════════════════════
+        # 51-52. EXAM ENGINE (reports + student flags)
+        # ══════════════════════════════════════════════════════════════
+        exam_events = ["EXAM_STARTED", "EXAM_SUBMITTED", "EXAM_TIMED_OUT", "EXAM_FLAGGED", "EXAM_COMPLETED"]
+        for i in range(20):
+            pub_id = str(uuid4())
+            await insert_one(
+                s,
+                "exam_engine_reports",
+                public_id=pub_id,
+                report_public_id=str(uuid4()),
+                report_type=choice(["live", "summary", "flagged"]),
+                student_id=choice(student_ids),
+                exam_id=randint(1, 25),
+                event=choice(exam_events),
+                payload_json=None,
+                received_at=now - timedelta(hours=randint(1, 200)),
+                created_at=now,
+                updated_at=now,
+            )
+        print("[OK] Inserted 20 exam_engine_reports")
+
+        for i in range(20):
+            await insert_one(
+                s,
+                "exam_engine_student_flags",
+                public_id=str(uuid4()),
+                student_id=choice(student_ids),
+                is_at_risk=choice([True, False, False]),
+                class_id=choice(cl_ids),
+                event=choice(exam_events),
+                payload_json=None,
+                received_at=now - timedelta(hours=randint(1, 200)),
+                created_at=now,
+                updated_at=now,
+            )
+        print("[OK] Inserted 20 exam_engine_student_flags")
 
         print("\n[COMPLETE] SEEDING COMPLETE! All 53 tables populated.")
         print(

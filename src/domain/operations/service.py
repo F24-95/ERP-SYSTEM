@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.enums import UserRole
@@ -429,6 +429,13 @@ class DailyClassService:
             if not owns:
                 raise AuthorizationException("You can only delete your own classes")
 
+        # Remove attendance rows first — they hard-reference the class via a
+        # foreign key, so deleting the class alone raises an integrity error.
+        await db.execute(
+            delete(DailyClassStudent).where(
+                DailyClassStudent.daily_class_id == daily_class_id,
+            ),
+        )
         await daily_class_crud.delete(db, daily_class_id)
 
     @staticmethod
