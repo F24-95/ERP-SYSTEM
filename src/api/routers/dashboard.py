@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import require_role
@@ -32,3 +32,23 @@ async def get_admin_dashboard(
     current_user: User = Depends(require_role(UserRole.ADMIN)),
 ):
     return await DashboardService.get_admin_dashboard(db)
+
+
+@router.get("/admin/overview")
+async def get_admin_overview(
+    session_id: int | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+):
+    """School-wide ERP summary: totals, fees, attendance for admin report."""
+    return await DashboardService.get_admin_overview(db, session_id)
+
+
+@router.get("/admin/class-stats")
+async def get_admin_class_stats(
+    session_id: int | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+):
+    """Per-class breakdown: students, attendance, exam avg, fees for admin report."""
+    return await DashboardService.get_admin_class_stats(db, session_id)

@@ -32,6 +32,260 @@ from src.domain.users.models import StudentProfile, TeacherProfile, User
 
 
 class DashboardService:
+
+    # =================================================================
+    # Admin ERP Summary — class-wise stats + school-wide overview
+    # =================================================================
+
+    @staticmethod
+    async def get_admin_overview(db: AsyncSession, session_id: int | None = None) -> dict[str, Any]:
+        """School-wide overview for the ERP Summary page.  Returns total
+        students, teachers, classes, subjects, fees collected/pending, and
+        overall attendance percentage for the given (or current) session.
+        """
+        from src.domain.academics.models import AcademicSession, ClassRoom, ClassSubject
+        from src.domain.assignments.models import Assignment, AssignmentResult
+        from src.domain.curriculum.models import Subject
+        from src.domain.exams.models import Exam, ExamResult
+        from src.domain.fees.models import Fee
+        from src.domain.operations.models import StudentAttendance, StudentClass
+
+        if session_id:
+            session = await db.get(AcademicSession, session_id)
+        else:
+            session = await db.scalar(select(AcademicSession).filter_by(is_current=True))
+
+        total_students = (
+            await db.scalar(
+                select(func.count()).select_from(StudentProfile).filter(StudentProfile.is_active),
+            )
+            or 0
+        )
+        total_teachers = (
+            await db.scalar(
+                select(func.count()).select_from(TeacherProfile).filter(TeacherProfile.is_active),
+            )
+            or 0
+        )
+        total_classes = (
+            await db.scalar(
+                select(func.count()).select_from(ClassRoom).filter(ClassRoom.is_active),
+            )
+            or 0
+        )
+        total_subjects = (
+            await db.scalar(
+                select(func.count()).select_from(Subject).filter(Subject.is_active),
+            )
+            or 0
+        )
+
+        # Session-scoped stats
+        session_students = 0
+        total_fees = 0.0
+        paid_fees = 0.0
+        total_attendance_classes = 0
+        total_attendance_present = 0
+
+        if session:
+            session_students = (
+                await db.scalar(
+                    select(func.count())
+                    .select_from(StudentClass)
+                    .filter(
+                        StudentClass.academic_sessions_id == session.id,
+                        StudentClass.status == "ACTIVE",
+                    ),
+                )
+                or 0
+            )
+
+            # Fees for this session
+            student_class_ids = list(
+                (
+                    await db.execute(
+                        select(StudentClass.id).filter_by(
+                            academic_sessions_id=session.id,
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            if student_class_ids:
+                fees = list(
+                    (
+                        await db.execute(
+                            select(Fee).filter(Fee.student_class_id.in_(student_class_ids))
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+                total_fees = sum(float(f.total_amount) for f in fees)
+                paid_fees = sum(float(f.paid_amount) for f in fees)
+
+                # Attendance across all students in session
+                attendances = list(
+                    (
+                        await db.execute(
+                            select(StudentAttendance).filter(
+                                StudentAttendance.student_class_id.in_(student_class_ids)
+                            )
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+                total_attendance_classes = sum(a.total_classes for a in attendances)
+                total_attendance_present = sum(a.present_classes for a in attendances)
+
+        overall_attendance = (
+            round(total_attendance_present / total_attendance_classes * 100, 1)
+            if total_attendance_classes > 0
+            else 0
+        )
+
+        return {
+            "session_name": session.session_name if session else "None",
+            "total_students": total_students,
+            "total_teachers": total_teachers,
+            "total_classes": total_classes,
+            "total_subjects": total_subjects,
+            "session_students": session_students,
+            "fees": {
+                "total": round(total_fees, 2),
+                "collected": round(paid_fees, 2),
+                "pending": round(total_fees - paid_fees, 2),
+            },
+            "attendance": {
+                "total_classes": total_attendance_classes,
+                "present": total_attendance_present,
+                "overall_percentage": overall_attendance,
+            },
+        }
+
+    @staticmethod
+    async def get_admin_class_stats(db: AsyncSession, session_id: int | None = None) -> list[dict[str, Any]]:
+        """Per-class breakdown: student count, avg attendance, avg exam
+        marks, fee total/collected/pending for each classroom in the
+        given (or current) session.
+        """
+        from src.domain.academics.models import AcademicSession, ClassRoom
+        from src.domain.assignments.models import AssignmentResult
+        from src.domain.exams.models import Exam, ExamResult
+        from src.domain.fees.models import Fee
+        from src.domain.operations.models import StudentAttendance, StudentClass
+
+        if session_id:
+            session = await db.get(AcademicSession, session_id)
+        else:
+            session = await db.scalar(select(AcademicSession).filter_by(is_current=True))
+
+        if not session:
+            return []
+
+        classrooms = list(
+            (
+                await db.execute(
+                    select(ClassRoom).filter_by(
+                        academic_sessions_id=session.id,
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+        result = []
+        for cr in classrooms:
+            # Students in this class
+            student_classes = list(
+                (
+                    await db.execute(
+                        select(StudentClass).filter_by(
+                            classroom_id=cr.id,
+                            academic_sessions_id=session.id,
+                            status="ACTIVE",
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            sc_ids = [sc.id for sc in student_classes]
+            student_count = len(sc_ids)
+
+            # Attendance
+            avg_attendance = 0
+            if sc_ids:
+                attendances = list(
+                    (
+                        await db.execute(
+                            select(StudentAttendance).filter(
+                                StudentAttendance.student_class_id.in_(sc_ids)
+                            )
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+                if attendances:
+                    total_cls = sum(a.total_classes for a in attendances)
+                    total_pres = sum(a.present_classes for a in attendances)
+                    avg_attendance = round(total_pres / total_cls * 100, 1) if total_cls > 0 else 0
+
+            # Exam results — avg percentage
+            avg_exam_marks = 0
+            exam_count = 0
+            if sc_ids:
+                exam_results = list(
+                    (
+                        await db.execute(
+                            select(ExamResult).filter(
+                                ExamResult.student_class_id.in_(sc_ids),
+                                ExamResult.is_absent == False,
+                            )
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+                exam_count = len(exam_results)
+                if exam_results:
+                    avg_exam_marks = round(
+                        sum(er.percentage or 0 for er in exam_results) / len(exam_results), 1
+                    )
+
+            # Fees
+            total_fee = 0.0
+            paid_fee = 0.0
+            if sc_ids:
+                fees = list(
+                    (
+                        await db.execute(
+                            select(Fee).filter(Fee.student_class_id.in_(sc_ids))
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+                total_fee = sum(float(f.total_amount) for f in fees)
+                paid_fee = sum(float(f.paid_amount) for f in fees)
+
+            result.append({
+                "classroom_id": cr.id,
+                "class_name": cr.display_name,
+                "student_count": student_count,
+                "avg_attendance": avg_attendance,
+                "avg_exam_marks": avg_exam_marks,
+                "exam_count": exam_count,
+                "fees_total": round(total_fee, 2),
+                "fees_collected": round(paid_fee, 2),
+                "fees_pending": round(total_fee - paid_fee, 2),
+            })
+
+        return result
     @staticmethod
     async def get_student_dashboard(db: AsyncSession, user_id: int) -> dict[str, Any]:
         student = await db.scalar(select(StudentProfile).filter_by(user_id=user_id))
@@ -344,9 +598,38 @@ class DashboardService:
                 )
                 or 0
             )
+
+            # Fees for current session (same logic as get_admin_overview)
+            student_class_ids = list(
+                (
+                    await db.execute(
+                        select(StudentClass.id).filter_by(
+                            academic_sessions_id=current_session.id,
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            total_fees = 0.0
+            paid_fees = 0.0
+            if student_class_ids:
+                fees = list(
+                    (
+                        await db.execute(
+                            select(Fee).filter(Fee.student_class_id.in_(student_class_ids))
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+                total_fees = sum(float(f.total_amount) for f in fees)
+                paid_fees = sum(float(f.paid_amount) for f in fees)
         else:
             session_classes = 0
             session_students = 0
+            total_fees = 0.0
+            paid_fees = 0.0
 
         recent_users = list(
             (await db.execute(select(User).order_by(User.created_at.desc()).limit(5)))
@@ -383,6 +666,11 @@ class DashboardService:
                 else "None",
                 "total_classes": session_classes,
                 "total_students": session_students,
+            },
+            "fees": {
+                "total": round(total_fees, 2),
+                "collected": round(paid_fees, 2),
+                "pending": round(total_fees - paid_fees, 2),
             },
             "exam_engine": exam_engine,
             "recent_activity": {

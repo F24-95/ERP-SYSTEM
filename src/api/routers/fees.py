@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import get_current_user, require_role
@@ -32,12 +32,32 @@ async def create_fee(
 
 @router.get("", response_model=list[FeeResponse])
 async def list_fees(
+    session_id: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.ADMIN)),
 ):
     # get_all() returns (items, total) - was previously returned directly
     # against a `list[FeeResponse]` response_model, a shape mismatch
     # (FastAPI would try to validate the raw tuple as the list).
+    # When session_id is provided, filter fees to that session's enrollments.
+    if session_id:
+        from sqlalchemy import select
+        from src.domain.operations.models import StudentClass
+        from src.domain.fees.models import Fee
+
+        sc_ids = list(
+            (await db.execute(
+                select(StudentClass.id).filter_by(academic_sessions_id=session_id)
+            )).scalars().all()
+        )
+        if not sc_ids:
+            return []
+        items = list(
+            (await db.execute(
+                select(Fee).filter(Fee.student_class_id.in_(sc_ids))
+            )).scalars().all()
+        )
+        return items
     items, _total = await fee_crud.get_all(db)
     return items
 
@@ -55,9 +75,31 @@ async def pay_fee(
 
 @router.get("/pending", response_model=list[FeeResponse])
 async def pending_fees(
+    session_id: int | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.ADMIN)),
 ):
+    if session_id:
+        from sqlalchemy import select
+        from src.domain.operations.models import StudentClass
+        from src.domain.fees.models import Fee
+
+        sc_ids = list(
+            (await db.execute(
+                select(StudentClass.id).filter_by(academic_sessions_id=session_id)
+            )).scalars().all()
+        )
+        if not sc_ids:
+            return []
+        items = list(
+            (await db.execute(
+                select(Fee).filter(
+                    Fee.student_class_id.in_(sc_ids),
+                    Fee.status.in_(["PENDING", "OVERDUE"]),
+                )
+            )).scalars().all()
+        )
+        return items
     return await FeeService.get_pending(db)
 
 

@@ -60,6 +60,20 @@ async def generate_report(
     return _to_response(report)
 
 
+@router.get("/student/{student_profile_id}/full-report")
+async def get_full_student_report(
+    student_profile_id: int,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Full aggregated student report: profile, attendance, subject-wise
+    exam & assignment results, and fee summary for the current session.
+    """
+    return await StudentReportService.get_full_student_report(
+        db, student_profile_id, current_user,
+    )
+
+
 @router.get("/exam-engine", tags=["Exam Engine Integration"])
 async def exam_engine_report(
     current_user=Depends(require_role(UserRole.ADMIN)),

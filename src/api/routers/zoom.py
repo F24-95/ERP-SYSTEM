@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends
+from datetime import date
+
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import get_current_user, require_role
@@ -11,7 +14,7 @@ from src.domain.zoom.schemas import (
     ZoomMeetingIngest,
     ZoomMeetingResponse,
 )
-from src.domain.zoom.service import ZoomFileService, ZoomMeetingService
+from src.domain.zoom.service import ZoomFileService, ZoomMeetingService, ZoomReportService
 
 router = APIRouter(prefix="/zoom", tags=["Zoom"])
 
@@ -107,3 +110,44 @@ async def get_zoom_meeting(
 ):
     """Get a Zoom meeting by its Zoom UUID."""
     return await ZoomMeetingService.get(db, uuid)
+
+
+# ==================== ZOOM REPORTS ====================
+
+
+@router.get("/reports/class/{classroom_id}")
+async def get_class_zoom_report(
+    classroom_id: int,
+    start_date: date | None = Query(None),
+    end_date: date | None = Query(None),
+    current_user=Depends(require_role(UserRole.ADMIN, UserRole.TEACHER)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Class-wise Zoom report: all sessions, participants, interactions."""
+    return await ZoomReportService.get_class_zoom_report(
+        db, classroom_id, start_date, end_date,
+    )
+
+
+@router.get("/reports/meeting/{meeting_uuid}")
+async def get_meeting_detail_report(
+    meeting_uuid: str,
+    current_user=Depends(require_role(UserRole.ADMIN, UserRole.TEACHER)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Detailed single meeting report with participants and interactions."""
+    return await ZoomReportService.get_meeting_detail_report(db, meeting_uuid)
+
+
+@router.get("/reports/meetings")
+async def list_all_meetings(
+    classroom_id: int | None = Query(None),
+    start_date: date | None = Query(None),
+    end_date: date | None = Query(None),
+    current_user=Depends(require_role(UserRole.ADMIN, UserRole.TEACHER)),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all meetings with basic stats."""
+    return await ZoomReportService.list_all_meetings(
+        db, classroom_id, start_date, end_date,
+    )
