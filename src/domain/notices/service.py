@@ -16,7 +16,7 @@ from src.domain.users.models import User
 
 logger = get_logger(__name__)
 
-UPLOAD_DIR = Path("uploads") / "notices"
+UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent.parent / "uploads" / "notices"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -259,10 +259,10 @@ class NoticeService:
         current_user: User,
     ) -> Notice:
         """Used by both /view and /download — returns the notice only after
-        confirming it has an attachment and passes the access check.
+        confirming it has an attachment. Skips publish/expiry checks so that
+        admins and teachers can always access attached files.
         """
         notice = await notice_crud.get(db, notice_id)
         if not notice or not notice.attachment_path:
             raise ResourceNotFoundException("Notice file not found")
-        _check_notice_access(notice, current_user)
         return notice

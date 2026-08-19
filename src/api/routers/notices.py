@@ -114,7 +114,7 @@ async def update_notice(
 @router.delete("/{notice_id}")
 async def delete_notice(
     notice_id: int,
-    current_user: User = Depends(require_role(UserRole.ADMIN)),
+    current_user: User = Depends(require_role(UserRole.ADMIN, UserRole.TEACHER)),
     db: AsyncSession = Depends(get_db),
 ):
     """Soft-delete notice + remove attachment file from disk (best-effort)."""
@@ -160,6 +160,7 @@ async def view_notice_file(
         disk_path,
         media_type=notice.mime_type,
         filename=notice.attachment_name or stored_name,
+        headers={"Content-Disposition": f"inline; filename={notice.attachment_name or stored_name}"},
     )
 
 

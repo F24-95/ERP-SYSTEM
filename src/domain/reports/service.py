@@ -642,10 +642,11 @@ class StudentReportService:
         db: AsyncSession,
         student_profile_id: int,
         current_user: User,
+        session_id: int | None = None,
     ) -> dict:
         """Return a single aggregated payload containing the student's
         profile, enrollment, attendance, subject-wise exam & assignment
-        results, and fee summary for the current academic session.
+        results, and fee summary for the selected academic session.
         """
         from src.domain.academics.models import AcademicSession, ClassRoom, ClassSubject
         from src.domain.assignments.models import Assignment, AssignmentResult
@@ -665,24 +666,38 @@ class StudentReportService:
         if not profile:
             raise ResourceNotFoundException("Student profile not found")
 
-        # Find current session enrollment (or latest enrollment)
-        current_session = await db.scalar(
-            select(AcademicSession).filter_by(is_current=True),
-        )
+        # Find enrollment: use explicit session_id if provided, else current session, else latest
         enrollment = None
-        if current_session:
+        target_session = None
+
+        if session_id:
+            target_session = await db.get(AcademicSession, session_id)
             enrollment = await db.scalar(
                 select(StudentClass).filter_by(
                     student_id=profile.user_id,
-                    academic_sessions_id=current_session.id,
+                    academic_sessions_id=session_id,
                 ),
             )
+        if not enrollment:
+            current_session = await db.scalar(
+                select(AcademicSession).filter_by(is_current=True),
+            )
+            if current_session:
+                target_session = current_session
+                enrollment = await db.scalar(
+                    select(StudentClass).filter_by(
+                        student_id=profile.user_id,
+                        academic_sessions_id=current_session.id,
+                    ),
+                )
         if not enrollment:
             enrollment = await db.scalar(
                 select(StudentClass)
                 .filter_by(student_id=profile.user_id)
                 .order_by(StudentClass.academic_sessions_id.desc()),
             )
+            if enrollment and not target_session:
+                target_session = await db.get(AcademicSession, enrollment.academic_sessions_id)
         if not enrollment:
             return _build_empty_report(profile, student_profile_id)
 
@@ -691,7 +706,9 @@ class StudentReportService:
 
         # Resolve session name without touching the unloaded relationship
         session_name = None
-        if enrollment.academic_sessions_id:
+        if target_session:
+            session_name = getattr(target_session, 'session_name', None)
+        elif enrollment.academic_sessions_id:
             try:
                 _sess = await db.get(AcademicSession, enrollment.academic_sessions_id)
                 session_name = getattr(_sess, 'session_name', None) if _sess else None

@@ -462,7 +462,8 @@ class DashboardService:
                 .select_from(DailyClass)
                 .filter(
                     DailyClass.teacher_subject_id.in_(teacher_subject_ids),
-                    DailyClass.class_date == today,
+                    DailyClass.class_date >= today - timedelta(days=7),
+                    DailyClass.class_date <= today,
                 ),
             )
             or 0
@@ -487,7 +488,10 @@ class DashboardService:
                 .select_from(Assignment)
                 .filter(
                     Assignment.teacher_subject_id.in_(teacher_subject_ids),
-                    Assignment.status == AssignmentStatus.DRAFT,
+                    Assignment.status.in_([
+                        AssignmentStatus.DRAFT,
+                        AssignmentStatus.PUBLISHED,
+                    ]),
                 ),
             )
             or 0
@@ -499,7 +503,7 @@ class DashboardService:
                 .select_from(Exam)
                 .filter(
                     Exam.teacher_subject_id.in_(teacher_subject_ids),
-                    Exam.exam_date >= date.today(),
+                    Exam.exam_date >= today - timedelta(days=30),
                     Exam.status.in_([ExamStatus.PUBLISHED, ExamStatus.DRAFT]),
                 ),
             )

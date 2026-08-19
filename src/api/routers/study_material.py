@@ -174,7 +174,7 @@ async def update_study_material(
 @router.delete("/{id}")
 async def delete_study_material(
     id: int,
-    current_user: User = Depends(require_role(UserRole.ADMIN)),
+    current_user: User = Depends(require_role(UserRole.ADMIN, UserRole.TEACHER)),
     db: AsyncSession = Depends(get_db),
 ):
     await StudyMaterialService.delete_material(db, id)

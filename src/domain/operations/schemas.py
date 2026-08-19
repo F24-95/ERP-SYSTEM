@@ -334,6 +334,11 @@ class StudentTimetableItemResponse(BaseModel):
     end_time: time
     subject: str
     teacher: str
+    classroom_id: int | None = None
+    classroom_name: str | None = None
+    class_subject_id: int | None = None
+    week_day_id: int | None = None
+    time_slot_id: int | None = None
 
 
 class TeacherTimetableItemResponse(BaseModel):
@@ -346,5 +351,9 @@ class TeacherTimetableItemResponse(BaseModel):
     subject: str
     day: str
     time: str
+    classroom_id: int | None = None
+    class_subject_id: int | None = None
+    week_day_id: int | None = None
+    time_slot_id: int | None = None
 
     model_config = {"populate_by_name": True}

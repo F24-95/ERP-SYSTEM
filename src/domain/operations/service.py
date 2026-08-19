@@ -941,6 +941,24 @@ class TimetableService:
             ),
         )
         student_classes = list(result.scalars().all())
+
+        if not student_classes:
+            fallback = await db.scalar(
+                select(StudentClass)
+                .filter_by(student_id=student_user_id, status="ACTIVE")
+                .order_by(StudentClass.academic_sessions_id.desc()),
+            )
+            if fallback:
+                current_session_id = fallback.academic_sessions_id
+                result = await db.execute(
+                    select(StudentClass).filter(
+                        StudentClass.student_id == student_user_id,
+                        StudentClass.academic_sessions_id == current_session_id,
+                        StudentClass.status == "ACTIVE",
+                    ),
+                )
+                student_classes = list(result.scalars().all())
+
         if not student_classes:
             return []
 
@@ -948,7 +966,12 @@ class TimetableService:
 
         query = (
             select(
+                ClassRoom.id.label("classroom_id"),
+                ClassRoom.display_name.label("classroom_name"),
+                ClassSubject.id.label("class_subject_id"),
+                WeekDay.id.label("week_day_id"),
                 WeekDay.day_name.label("day"),
+                TimeSlot.id.label("time_slot_id"),
                 TimeSlot.start_time.label("start_time"),
                 TimeSlot.end_time.label("end_time"),
                 Subject.subject_name.label("subject"),
@@ -978,7 +1001,12 @@ class TimetableService:
         rows = (await db.execute(query)).all()
         return [
             {
+                "classroom_id": r.classroom_id,
+                "classroom_name": r.classroom_name,
+                "class_subject_id": r.class_subject_id,
+                "week_day_id": r.week_day_id,
                 "day": r.day,
+                "time_slot_id": r.time_slot_id,
                 "start_time": r.start_time,
                 "end_time": r.end_time,
                 "subject": r.subject,
@@ -1016,9 +1044,13 @@ class TimetableService:
 
         query = (
             select(
+                ClassRoom.id.label("classroom_id"),
                 ClassRoom.display_name.label("classroom_display_name"),
+                ClassSubject.id.label("class_subject_id"),
                 Subject.subject_name.label("subject"),
+                WeekDay.id.label("week_day_id"),
                 WeekDay.day_name.label("day"),
+                TimeSlot.id.label("time_slot_id"),
                 TimeSlot.start_time.label("start_time"),
                 TimeSlot.end_time.label("end_time"),
             )
@@ -1053,9 +1085,13 @@ class TimetableService:
         return [
             {
                 "class_": r.classroom_display_name,
+                "classroom_id": r.classroom_id,
                 "subject": r.subject,
+                "class_subject_id": r.class_subject_id,
                 "day": r.day,
+                "week_day_id": r.week_day_id,
                 "time": f"{r.start_time} - {r.end_time}",
+                "time_slot_id": r.time_slot_id,
             }
             for r in rows
         ]

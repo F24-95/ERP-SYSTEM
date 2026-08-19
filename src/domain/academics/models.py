@@ -34,6 +34,7 @@ class AcademicSession(Base, TimestampMixin, ActiveMixin, AuditMixin):
         Index("idx_session_name", "session_name"),
         Index("idx_session_active", "is_current"),
         UniqueConstraint("session_name", name="uq_session_name"),
+        Index("uq_one_current_session", "is_current", unique=True, postgresql_where="is_current = true"),
     )
 
     classrooms = relationship(

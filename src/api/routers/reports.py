@@ -63,14 +63,15 @@ async def generate_report(
 @router.get("/student/{student_profile_id}/full-report")
 async def get_full_student_report(
     student_profile_id: int,
+    session_id: int | None = None,
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Full aggregated student report: profile, attendance, subject-wise
-    exam & assignment results, and fee summary for the current session.
+    exam & assignment results, and fee summary for the selected session.
     """
     return await StudentReportService.get_full_student_report(
-        db, student_profile_id, current_user,
+        db, student_profile_id, current_user, session_id=session_id,
     )
 
 
