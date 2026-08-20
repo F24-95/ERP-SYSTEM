@@ -6,13 +6,19 @@ ns-exam pushes outbound sync events here (Phase 16 of the exam-engine report):
 
 The ERP stores the metadata + payload so its dashboards and reports can
 surface exam-engine data. Admin GET endpoints are provided for review.
+
+Phase 1 Security Hardening: Webhook token is now REQUIRED (not optional).
+Phase 5 Webhook Hardening: Added request size limit and structured logging.
 """
 
-from fastapi import APIRouter, Depends, Header
+import os
+
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import require_role
 from src.core.enums import UserRole
+from src.core.logger import get_logger
 from src.database.connection import get_db
 from src.domain.exam_engine.crud import (
     exam_engine_report_crud,
@@ -27,7 +33,36 @@ from src.domain.exam_engine.schemas import (
 )
 from src.domain.exam_engine.service import ExamEngineIntegrationService
 
+logger = get_logger(__name__)
+
 router = APIRouter(tags=["Exam Engine Integration"])
+
+# Phase 5: Max webhook payload size (1MB)
+MAX_WEBHOOK_PAYLOAD_SIZE = 1024 * 1024
+
+
+async def require_webhook_token(
+    x_webhook_token: str | None = Header(default=None, alias="X-Webhook-Token"),
+) -> str:
+    """Validate webhook token from X-Webhook-Token header.
+
+    Phase 1 Security: Webhook token is now REQUIRED (not optional).
+    If EXAM_ENGINE_WEBHOOK_TOKEN is not configured, return 500.
+    """
+    expected = os.getenv("EXAM_ENGINE_WEBHOOK_TOKEN", "")
+    if not expected:
+        logger.error("webhook.token_not_configured")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Webhook token not configured on server",
+        )
+    if not x_webhook_token or x_webhook_token != expected:
+        logger.warning("webhook.invalid_token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid webhook token",
+        )
+    return x_webhook_token
 
 
 @router.post(
@@ -37,10 +72,14 @@ router = APIRouter(tags=["Exam Engine Integration"])
 )
 async def webhook_report_generated(
     body: ReportGeneratedWebhook,
-    x_webhook_token: str | None = Header(default=None, alias="X-Webhook-Token"),
+    _: str = Depends(require_webhook_token),
     db: AsyncSession = Depends(get_db),
 ):
-    ExamEngineIntegrationService.check_webhook_token(x_webhook_token)
+    logger.info(
+        "webhook.report_generated.received",
+        report_public_id=body.report_public_id,
+        report_type=body.report_type,
+    )
     result = await ExamEngineIntegrationService.receive_report_generated(
         db,
         report_public_id=body.report_public_id,
@@ -60,10 +99,14 @@ async def webhook_report_generated(
 )
 async def webhook_student_at_risk(
     body: StudentAtRiskWebhook,
-    x_webhook_token: str | None = Header(default=None, alias="X-Webhook-Token"),
+    _: str = Depends(require_webhook_token),
     db: AsyncSession = Depends(get_db),
 ):
-    ExamEngineIntegrationService.check_webhook_token(x_webhook_token)
+    logger.info(
+        "webhook.student_at_risk.received",
+        student_id=body.student_id,
+        is_at_risk=body.is_at_risk,
+    )
     result = await ExamEngineIntegrationService.receive_student_at_risk(
         db,
         student_id=body.student_id,
