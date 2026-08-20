@@ -34,7 +34,7 @@ DEFAULT_PASSWORD = "password123"
 # ────────────────────────────────────────────────────────────
 
 ADMIN_ACCOUNTS = [
-    {"email": "admin@school.com",  "phone": "9000000001", "name": "School Admin", "super_admin": True},
+    {"email": "faizansidd601@gmail.com",  "phone": "9517122461", "name": "Super Admin", "super_admin": True},
     {"email": "admin2@school.com", "phone": "9000000002", "name": "Admin Two"},
     {"email": "admin3@school.com", "phone": "9000000003", "name": "Admin Three"},
 ]
@@ -144,11 +144,6 @@ async def seed():
         await conn.run_sync(Base.metadata.create_all)
 
     async with AsyncSessionLocal() as db:
-        existing = await db.scalar(select(User).limit(1))
-        if existing:
-            print("Database already has accounts. Skipping seed.")
-            return
-
         created, skipped = [], []
 
         try:
