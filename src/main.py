@@ -167,7 +167,7 @@ def create_app() -> FastAPI:
                 if result.scalars().first() is None:
                     logger.warning(
                         "No admin account exists yet. Run: "
-                        "python -m scripts.create_first_admin",
+                        "python -m scripts.seed_accounts",
                     )
         except Exception:
             # Don't let this convenience check block startup if the DB
@@ -182,6 +182,11 @@ def create_app() -> FastAPI:
         await engine.dispose()
 
     app.router.lifespan_context = lifespan
+
+    @app.get("/", tags=["System"])
+    async def root():
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/docs")
 
     @app.get("/health", tags=["System"])
     async def health_check():
