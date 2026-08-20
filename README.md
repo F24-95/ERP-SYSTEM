@@ -158,7 +158,25 @@ alembic revision --autogenerate -m "initial schema"
 alembic upgrade head
 ```
 
-### Step 7: Start the Server
+### Step 7: Seed User Accounts
+
+```bash
+python -m scripts.seed_accounts
+```
+
+This creates all user accounts: **3 Admins, 6 Teachers, 30 Students**.
+After seeding, the admin can log in and manage everything else (academics, exams, fees, etc.) via the API.
+
+**Default Credentials:**
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin (Super) | `admin@school.com` | `password123` |
+| Admin | `admin2@school.com` | `password123` |
+| Teacher | `teacher1@school.com` | `password123` |
+| Student | `student1@school.com` | `password123` |
+
+### Step 8: Start the Server
 
 ```bash
 # Development (with auto-reload)
@@ -167,32 +185,6 @@ uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 # Production
 uvicorn src.main:app --host 0.0.0.0 --port 8000 --workers 4
 ```
-
-### Step 8: Create First Admin Account
-
-```bash
-python -m scripts.create_first_admin --email admin@school.com --role admin --super-admin
-```
-
-### Step 9: Seed Test Data (Optional)
-
-```bash
-python seed_all_data.py
-```
-
-This creates:
-- 30 Students, 6 Teachers, 1 Admin
-- 5 Classes, 6 Subjects
-- Exams, Assignments, Fees, Notices
-- Zoom meetings with transcripts
-
-**Default Credentials After Seeding:**
-
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | `admin@school.com` | `admin123` |
-| Teacher | `teacher1@school.com` | `teacher123` |
-| Student | `student1@school.com` | `student123` |
 
 ---
 
@@ -212,7 +204,7 @@ Once the server is running, access:
 # 1. Login to get tokens
 curl -X POST http://localhost:8000/auth/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=admin@school.com&password=admin123"
+  -d "username=admin@school.com&password=password123"
 
 # 2. Use the access token in subsequent requests
 curl http://localhost:8000/admin/students \
@@ -257,12 +249,8 @@ merged/
 │   └── env.py                   # Async Alembic environment
 │
 ├── scripts/                     # CLI utility scripts
-│   ├── create_first_admin.py    # Bootstrap first admin
-│   ├── seed_accounts.py         # Account seeding
-│   ├── seed_all_data.py         # Comprehensive data seeder
-│   ├── seed_teacher_dashboard.py
-│   ├── seed_zoom_data.py
-│   └── api_insert.ps1           # PowerShell API insert
+│   ├── __init__.py
+│   └── seed_accounts.py         # Seed all user accounts (admin, teacher, student)
 │
 ├── src/                         # Main application source
 │   ├── main.py                  # FastAPI app factory
@@ -322,7 +310,6 @@ merged/
 ├── pyproject.toml               # Ruff linter config
 ├── pytest.ini                   # Pytest configuration
 ├── requirements.txt             # Python dependencies
-├── seed_all_data.py             # Data seeding script
 └── README.md                    # This file
 ```
 
