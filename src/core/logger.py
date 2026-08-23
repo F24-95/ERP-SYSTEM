@@ -95,7 +95,22 @@ def setup_logger(
 
     # File Handler
     os.makedirs(log_dir, exist_ok=True)
-    file_handler = logging.handlers.RotatingFileHandler(
+
+    class _SafeRotatingFileHandler(logging.handlers.RotatingFileHandler):
+        """RotatingFileHandler that swallows PermissionError on rotate.
+
+        On Windows the log file is often locked by another process (e.g.
+        antivirus, another logger instance) which causes os.rename to fail.
+        Silently continuing avoids the noisy traceback on every rotation.
+        """
+
+        def doRollover(self):
+            try:
+                super().doRollover()
+            except PermissionError:
+                pass
+
+    file_handler = _SafeRotatingFileHandler(
         os.path.join(log_dir, "app.log"),
         maxBytes=5 * 1024 * 1024,
         backupCount=5,
