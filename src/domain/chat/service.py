@@ -84,10 +84,15 @@ class ChatService:
         """
         await ChatService.get_chat_room(db, room_id, current_user)
         await chat_room_crud.update(db, room_id, {"is_active": False})
-        logger.info(f"Chat room archived: id={room_id} by user={current_user.id}")
+        logger.info(
+            f"Chat room archived: id={room_id} by user={current_user.id}"
+        )
 
     @staticmethod
-    async def get_chat_rooms(db: AsyncSession, current_user: User) -> list[ChatRoom]:
+    async def get_chat_rooms(
+        db: AsyncSession,
+        current_user: User,
+    ) -> list[ChatRoom]:
         # NOTE: legacy's `get_chat_rooms` never initializes `rooms` in the
         # TEACHER branch when no TeacherProfile exists for the user, and the
         # same gap exists implicitly if a lookup fails partway — that path
@@ -122,7 +127,9 @@ class ChatService:
                 )
                 if student_class:
                     result = await db.execute(
-                        select(ChatRoom).filter_by(student_class_id=student_class.id),
+                        select(ChatRoom).filter_by(
+                            student_class_id=student_class.id,
+                        ),
                     )
                     rooms = list(result.scalars().all())
         else:
@@ -212,7 +219,9 @@ class ChatService:
             room.teacher_unread = (room.teacher_unread or 0) + 1
 
         await db.flush()
-        logger.info(f"Message sent in room={room_id} by user={current_user.id}")
+        logger.info(
+            f"Message sent in room={room_id} by user={current_user.id}"
+        )
         return new_message
 
     @staticmethod
@@ -225,10 +234,14 @@ class ChatService:
     ) -> list[ChatMessage]:
         room = await ChatService.get_chat_room(db, room_id, current_user)
 
-        query = select(ChatMessage).filter(ChatMessage.chat_room_id == room_id)
+        query = select(ChatMessage).filter(
+            ChatMessage.chat_room_id == room_id
+        )
         if before:
             query = query.filter(ChatMessage.created_at < before)
-        query = query.order_by(ChatMessage.created_at.desc()).limit(limit)
+        query = query.order_by(
+            ChatMessage.created_at.desc()
+        ).limit(limit)
 
         result = await db.execute(query)
         messages = list(result.scalars().all())
@@ -259,13 +272,17 @@ class ChatService:
         if not message or message.chat_room_id != room_id:
             raise ResourceNotFoundException("Message not found")
         if message.sender_id != current_user.id:
-            raise AuthorizationException("You can only edit your own messages")
+            raise AuthorizationException(
+                "You can only edit your own messages"
+            )
 
         message.message = new_text
         message.is_edited = True
         message.edited_at = datetime.utcnow()
         await db.flush()
-        logger.info(f"Message edited: id={message_id} by user={current_user.id}")
+        logger.info(
+            f"Message edited: id={message_id} by user={current_user.id}"
+        )
         return message
 
     @staticmethod
@@ -283,14 +300,26 @@ class ChatService:
         message = await chat_message_crud.get(db, message_id)
         if not message or message.chat_room_id != room_id:
             raise ResourceNotFoundException("Message not found")
-        if message.sender_id != current_user.id and current_user.role != UserRole.ADMIN:
-            raise AuthorizationException("You can only delete your own messages")
+        if (
+            message.sender_id != current_user.id
+            and current_user.role != UserRole.ADMIN
+        ):
+            raise AuthorizationException(
+                "You can only delete your own messages"
+            )
 
-        await chat_message_crud.update(db, message_id, {"is_active": False})
-        logger.info(f"Message deleted: id={message_id} by user={current_user.id}")
+        await chat_message_crud.update(
+            db, message_id, {"is_active": False}
+        )
+        logger.info(
+            f"Message deleted: id={message_id} by user={current_user.id}"
+        )
 
     @staticmethod
-    async def get_unread_counts(db: AsyncSession, current_user: User) -> dict[str, Any]:
+    async def get_unread_counts(
+        db: AsyncSession,
+        current_user: User,
+    ) -> dict[str, Any]:
         total_unread = 0
         room_counts: list[dict[str, Any]] = []
 
@@ -323,14 +352,20 @@ class ChatService:
             )
             if student:
                 student_class = await db.scalar(
-                    select(StudentClass).filter_by(student_id=current_user.id),
+                    select(StudentClass).filter_by(
+                        student_id=current_user.id
+                    ),
                 )
                 if student_class:
                     result = await db.execute(
-                        select(ChatRoom).filter_by(student_class_id=student_class.id),
+                        select(ChatRoom).filter_by(
+                            student_class_id=student_class.id
+                        ),
                     )
                     rooms = list(result.scalars().all())
-                    total_unread = sum(r.teacher_unread for r in rooms)
+                    total_unread = sum(
+                        r.teacher_unread for r in rooms
+                    )
                     room_counts = [
                         {
                             "room_id": r.id,
@@ -340,4 +375,7 @@ class ChatService:
                         for r in rooms
                     ]
 
-        return {"total_unread": total_unread, "rooms": room_counts}
+        return {
+            "total_unread": total_unread,
+            "rooms": room_counts,
+        }

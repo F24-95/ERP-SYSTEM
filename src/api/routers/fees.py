@@ -42,20 +42,29 @@ async def list_fees(
     # When session_id is provided, filter fees to that session's enrollments.
     if session_id:
         from sqlalchemy import select
+
         from src.domain.operations.models import StudentClass
         from src.domain.fees.models import Fee
 
         sc_ids = list(
-            (await db.execute(
-                select(StudentClass.id).filter_by(academic_sessions_id=session_id)
-            )).scalars().all()
+            (
+                await db.execute(
+                    select(StudentClass.id).filter_by(
+                        academic_sessions_id=session_id,
+                    )
+                )
+            ).scalars().all()
         )
         if not sc_ids:
             return []
         items = list(
-            (await db.execute(
-                select(Fee).filter(Fee.student_class_id.in_(sc_ids))
-            )).scalars().all()
+            (
+                await db.execute(
+                    select(Fee).filter(
+                        Fee.student_class_id.in_(sc_ids),
+                    )
+                )
+            ).scalars().all()
         )
         return items
     items, _total = await fee_crud.get_all(db)
@@ -81,23 +90,30 @@ async def pending_fees(
 ):
     if session_id:
         from sqlalchemy import select
+
         from src.domain.operations.models import StudentClass
         from src.domain.fees.models import Fee
 
         sc_ids = list(
-            (await db.execute(
-                select(StudentClass.id).filter_by(academic_sessions_id=session_id)
-            )).scalars().all()
+            (
+                await db.execute(
+                    select(StudentClass.id).filter_by(
+                        academic_sessions_id=session_id,
+                    )
+                )
+            ).scalars().all()
         )
         if not sc_ids:
             return []
         items = list(
-            (await db.execute(
-                select(Fee).filter(
-                    Fee.student_class_id.in_(sc_ids),
-                    Fee.status.in_(["PENDING", "OVERDUE"]),
+            (
+                await db.execute(
+                    select(Fee).filter(
+                        Fee.student_class_id.in_(sc_ids),
+                        Fee.status.in_(["PENDING", "OVERDUE"]),
+                    )
                 )
-            )).scalars().all()
+            ).scalars().all()
         )
         return items
     return await FeeService.get_pending(db)

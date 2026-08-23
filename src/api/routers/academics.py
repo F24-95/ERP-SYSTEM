@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.dependencies import require_role
+from src.api.dependencies import get_current_user, require_role
 from src.core.enums import UserRole
 from src.database.connection import get_db
 from src.domain.academics.schemas import (
@@ -24,6 +24,7 @@ from src.domain.curriculum.schemas import SubjectCreate, SubjectResponse, Subjec
 from src.domain.curriculum.service import SubjectService
 
 router = APIRouter(prefix="/academics", tags=["Academics"])
+
 
 # ============================================================
 # Academic Sessions
@@ -48,13 +49,18 @@ async def list_sessions(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     items, _total = await AcademicSessionService.list(db, skip=skip, limit=limit)
     return items
 
 
 @router.get("/sessions/{session_id}", response_model=AcademicSessionResponse)
-async def get_session(session_id: int, db: AsyncSession = Depends(get_db)):
+async def get_session(
+    session_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     return await AcademicSessionService.get(db, session_id)
 
 
@@ -104,6 +110,7 @@ async def list_classrooms(
     limit: int = Query(100, ge=1, le=500),
     academic_sessions_id: int | None = None,
     db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     items, _total = await ClassRoomService.list(
         db,
@@ -115,7 +122,11 @@ async def list_classrooms(
 
 
 @router.get("/classrooms/{classroom_id}", response_model=ClassRoomResponse)
-async def get_classroom(classroom_id: int, db: AsyncSession = Depends(get_db)):
+async def get_classroom(
+    classroom_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     return await ClassRoomService.get(db, classroom_id)
 
 
@@ -173,6 +184,7 @@ async def list_class_subjects(
     classroom_id: int | None = None,
     academic_sessions_id: int | None = None,
     db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     items, _total = await ClassSubjectService.list(
         db,
@@ -185,7 +197,11 @@ async def list_class_subjects(
 
 
 @router.get("/class-subjects/{class_subject_id}", response_model=ClassSubjectResponse)
-async def get_class_subject(class_subject_id: int, db: AsyncSession = Depends(get_db)):
+async def get_class_subject(
+    class_subject_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     return await ClassSubjectService.get(db, class_subject_id)
 
 
@@ -234,13 +250,18 @@ async def list_subjects(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     items, _total = await SubjectService.list(db, skip=skip, limit=limit)
     return items
 
 
 @router.get("/subjects/{subject_id}", response_model=SubjectResponse)
-async def get_subject(subject_id: int, db: AsyncSession = Depends(get_db)):
+async def get_subject(
+    subject_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     return await SubjectService.get(db, subject_id)
 
 

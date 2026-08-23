@@ -52,7 +52,7 @@ class ChatRoomResponse(ChatRoomBase, BaseResponse):
 # Chat Message
 # ===========================
 class ChatMessageBase(BaseModel):
-    message: str
+    message: str = Field(..., min_length=1, max_length=5000)
     is_edited: bool = False
     edited_at: datetime | None = None
 

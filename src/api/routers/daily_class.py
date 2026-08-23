@@ -153,13 +153,10 @@ async def get_attendance_record(
 async def update_attendance_record(
     record_id: int,
     data: DailyClassStudentUpdate,
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role(UserRole.TEACHER, UserRole.ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
-    """Correct a single student's attendance record. Was already possible
-    via re-POSTing through the bulk upsert, but had no dedicated
-    single-record endpoint.
-    """
+    """Correct a single student's attendance record. Teacher/Admin only."""
     return await DailyClassService.update_attendance_record(
         db,
         record_id,
@@ -171,12 +168,10 @@ async def update_attendance_record(
 @router.delete("/students/{record_id}", response_model=MessageResponse)
 async def delete_attendance_record(
     record_id: int,
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role(UserRole.TEACHER, UserRole.ADMIN)),
     db: AsyncSession = Depends(get_db),
 ):
-    """Delete a single attendance record (e.g. created against the wrong
-    student). Was missing entirely.
-    """
+    """Delete a single attendance record. Teacher/Admin only."""
     await DailyClassService.delete_attendance_record(db, record_id, current_user)
     return MessageResponse(message="Attendance record deleted")
 

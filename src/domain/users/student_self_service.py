@@ -33,8 +33,13 @@ logger = get_logger(__name__)
 
 class StudentSelfService:
     @staticmethod
-    async def _get_profile(db: AsyncSession, user_id: int) -> StudentProfile:
-        profile = await db.scalar(select(StudentProfile).filter_by(user_id=user_id))
+    async def _get_profile(
+        db: AsyncSession,
+        user_id: int,
+    ) -> StudentProfile:
+        profile = await db.scalar(
+            select(StudentProfile).filter_by(user_id=user_id),
+        )
         if not profile:
             raise ResourceNotFoundException("Student profile not found")
         return profile
@@ -58,11 +63,16 @@ class StudentSelfService:
                 .order_by(StudentClass.academic_sessions_id.desc()),
             )
         if not enrollment:
-            raise ResourceNotFoundException("Student not enrolled in any session")
+            raise ResourceNotFoundException(
+                "Student not enrolled in any session",
+            )
         return enrollment
 
     @staticmethod
-    async def get_profile(db: AsyncSession, user_id: int) -> StudentProfile:
+    async def get_profile(
+        db: AsyncSession,
+        user_id: int,
+    ) -> StudentProfile:
         return await StudentSelfService._get_profile(db, user_id)
 
     @staticmethod
@@ -85,7 +95,9 @@ class StudentSelfService:
         user_id: int,
         academic_sessions_id: int | None = None,
     ) -> list[StudentClass]:
-        query = select(StudentClass).filter(StudentClass.student_id == user_id)
+        query = select(StudentClass).filter(
+            StudentClass.student_id == user_id,
+        )
         if academic_sessions_id:
             query = query.filter(
                 StudentClass.academic_sessions_id == academic_sessions_id,
@@ -106,7 +118,9 @@ class StudentSelfService:
         )
 
         attendance = await db.scalar(
-            select(StudentAttendance).filter_by(student_class_id=enrollment.id),
+            select(StudentAttendance).filter_by(
+                student_class_id=enrollment.id,
+            ),
         )
         if not attendance:
             attendance = StudentAttendance(
@@ -129,7 +143,11 @@ class StudentSelfService:
         start_date: datetime | None = None,
         end_date: datetime | None = None,
     ) -> list[dict[str, Any]]:
-        from src.domain.operations.models import DailyClass, ClassTimeTable, TimeSlot
+        from src.domain.operations.models import (
+            DailyClass,
+            ClassTimeTable,
+            TimeSlot,
+        )
 
         enrollment = await StudentSelfService._get_enrollment(
             db,
@@ -139,14 +157,27 @@ class StudentSelfService:
 
         # Join: DailyClassStudent -> DailyClass to filter by class_date
         query = (
-            select(DailyClassStudent, DailyClass.class_date, DailyClass.timetable_id)
-            .join(DailyClass, DailyClassStudent.daily_class_id == DailyClass.id)
-            .filter(DailyClassStudent.student_class_id == enrollment.id)
+            select(
+                DailyClassStudent,
+                DailyClass.class_date,
+                DailyClass.timetable_id,
+            )
+            .join(
+                DailyClass,
+                DailyClassStudent.daily_class_id == DailyClass.id,
+            )
+            .filter(
+                DailyClassStudent.student_class_id == enrollment.id,
+            )
         )
         if start_date:
-            query = query.filter(DailyClass.class_date >= start_date)
+            query = query.filter(
+                DailyClass.class_date >= start_date,
+            )
         if end_date:
-            query = query.filter(DailyClass.class_date <= end_date)
+            query = query.filter(
+                DailyClass.class_date <= end_date,
+            )
         query = query.order_by(DailyClass.class_date.desc())
         rows = (await db.execute(query)).all()
 
@@ -157,7 +188,7 @@ class StudentSelfService:
             tts = (
                 await db.execute(
                     select(ClassTimeTable.id, ClassTimeTable.time_slot_id)
-                    .filter(ClassTimeTable.id.in_(tt_ids))
+                    .filter(ClassTimeTable.id.in_(tt_ids)),
                 )
             ).all()
             slot_ids = list({t.time_slot_id for t in tts})
@@ -165,16 +196,21 @@ class StudentSelfService:
                 slots = (
                     await db.execute(
                         select(TimeSlot.id, TimeSlot.slot_name)
-                        .filter(TimeSlot.id.in_(slot_ids))
+                        .filter(TimeSlot.id.in_(slot_ids)),
                     )
                 ).all()
                 slot_name_map = {s.id: s.slot_name for s in slots}
                 for t in tts:
-                    slot_map[t.id] = slot_name_map.get(t.time_slot_id, "—")
+                    slot_map[t.id] = slot_name_map.get(
+                        t.time_slot_id,
+                        "—",
+                    )
 
         results = []
         for r, class_date, timetable_id in rows:
-            period_name = slot_map.get(timetable_id, "—") if timetable_id else "—"
+            period_name = (
+                slot_map.get(timetable_id, "—") if timetable_id else "—"
+            )
             results.append({
                 "date": class_date,
                 "daily_class_id": r.daily_class_id,
@@ -222,9 +258,13 @@ class StudentSelfService:
             academic_sessions_id,
         )
 
-        query = select(ExamResult).filter(ExamResult.student_class_id == enrollment.id)
+        query = select(ExamResult).filter(
+            ExamResult.student_class_id == enrollment.id,
+        )
         if subject_id:
-            query = query.join(Exam).filter(Exam.class_subject_id == subject_id)
+            query = query.join(Exam).filter(
+                Exam.class_subject_id == subject_id,
+            )
         query = query.order_by(ExamResult.created_at.desc())
         return list((await db.execute(query)).scalars().all())
 
@@ -241,7 +281,9 @@ class StudentSelfService:
             academic_sessions_id,
         )
 
-        query = select(Fee).filter(Fee.student_class_id == enrollment.id)
+        query = select(Fee).filter(
+            Fee.student_class_id == enrollment.id,
+        )
         if fee_status:
             query = query.filter(Fee.status == fee_status)
         query = query.order_by(Fee.fee_year.desc(), Fee.fee_month.desc())
@@ -259,7 +301,9 @@ class StudentSelfService:
             academic_sessions_id,
         )
 
-        query = select(Fee).filter(Fee.student_class_id == enrollment.id)
+        query = select(Fee).filter(
+            Fee.student_class_id == enrollment.id,
+        )
         fees = list((await db.execute(query)).scalars().all())
 
         total_amount = sum((f.total_amount for f in fees), start=0)

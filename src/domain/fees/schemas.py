@@ -8,7 +8,7 @@ class FeeBase(BaseModel):
     academic_sessions_id: int
     student_class_id: int
     fee_month: int = Field(ge=1, le=12)
-    fee_year: int
+    fee_year: int = Field(ge=2000, le=2100)
     total_amount: Decimal = Field(max_digits=10, decimal_places=2)
     due_date: date
     remarks: str | None = None

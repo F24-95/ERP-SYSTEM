@@ -19,6 +19,22 @@ logger = get_logger(__name__)
 UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent.parent / "uploads" / "notices"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+ALLOWED_EXTENSIONS = {
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+    ".txt", ".csv", ".png", ".jpg", ".jpeg", ".gif", ".webp",
+}
+ALLOWED_MIME_TYPES = {
+    "application/pdf", "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "text/plain", "text/csv",
+    "image/png", "image/jpeg", "image/gif", "image/webp",
+}
+
 
 def _notice_file_disk_path(stored_name: str) -> Path:
     return UPLOAD_DIR / stored_name
@@ -34,22 +50,40 @@ def _delete_if_exists(path: Path) -> None:
 
 async def _save_notice_file(file: UploadFile) -> dict:
     original_name = file.filename or "notice"
-    ext = os.path.splitext(original_name)[1]
+    ext = os.path.splitext(original_name)[1].lower()
+
+    if ext and ext not in ALLOWED_EXTENSIONS:
+        raise BusinessLogicException(
+            f"File type '{ext}' is not allowed. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
+        )
+
+    if file.content_type and file.content_type not in ALLOWED_MIME_TYPES:
+        raise BusinessLogicException(
+            f"File type '{file.content_type}' is not allowed"
+        )
+
     stored_name = f"{uuid.uuid4().hex}{ext}" if ext else uuid.uuid4().hex
     disk_path = _notice_file_disk_path(stored_name)
 
+    total_size = 0
     with disk_path.open("wb") as buffer:
         while True:
             chunk = await file.read(1024 * 1024)
             if not chunk:
                 break
+            total_size += len(chunk)
+            if total_size > MAX_FILE_SIZE:
+                disk_path.unlink(missing_ok=True)
+                raise BusinessLogicException(
+                    f"File size exceeds maximum allowed size of {MAX_FILE_SIZE // (1024 * 1024)} MB"
+                )
             buffer.write(chunk)
 
     return {
         "attachment_name": original_name,
         "attachment_path": f"/uploads/notices/{stored_name}",
         "attachment_size": disk_path.stat().st_size,
-        "mime_type": file.content_type,
+        "mime_type": file.content_type if file.content_type in ALLOWED_MIME_TYPES else None,
     }
 
 
@@ -259,10 +293,15 @@ class NoticeService:
         current_user: User,
     ) -> Notice:
         """Used by both /view and /download — returns the notice only after
-        confirming it has an attachment. Skips publish/expiry checks so that
-        admins and teachers can always access attached files.
+        confirming it has an attachment. Checks audience access for students.
         """
         notice = await notice_crud.get(db, notice_id)
         if not notice or not notice.attachment_path:
             raise ResourceNotFoundException("Notice file not found")
+        if current_user.role == UserRole.STUDENT:
+            if notice.audience not in (NoticeAudience.ALL, NoticeAudience.STUDENT):
+                raise AuthorizationException("Access denied")
+        elif current_user.role == UserRole.TEACHER:
+            if notice.audience not in (NoticeAudience.ALL, NoticeAudience.TEACHER):
+                raise AuthorizationException("Access denied")
         return notice

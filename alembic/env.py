@@ -6,35 +6,26 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from sqlalchemy import pool
 from alembic import context
 
-# Load environment variables from .env file (located at project root)
 load_dotenv()
 
-# This is the Alembic Config object, which provides
-# access to the values within the .ini file in use.
 config = context.config
 
-# Override sqlalchemy.url from environment variable if set,
-# otherwise fall back to the value in alembic.ini (SQLite).
 database_url = os.getenv("DATABASE_URL")
 if database_url:
-    # Ensure async driver prefix for PostgreSQL
-    # Handle all common postgresql:// prefixes by converting to asyncpg
     if database_url.startswith("postgresql+psycopg://"):
         database_url = database_url.replace(
             "postgresql+psycopg://", "postgresql+asyncpg://", 1
         )
     elif database_url.startswith("postgresql://"):
-        database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        database_url = database_url.replace(
+            "postgresql://", "postgresql+asyncpg://", 1
+        )
     config.set_main_option("sqlalchemy.url", database_url)
 
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# add your model's MetaData object here
-# for 'autogenerate' support
-import src.database.base  # noqa: F401  # ensures every model is registered on Base.metadata
+import src.database.base  # noqa: F401
 from src.database.connection import Base
 
 target_metadata = Base.metadata

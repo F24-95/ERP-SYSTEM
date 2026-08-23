@@ -5,6 +5,7 @@ surfacing that consumes the stored records.
 """
 
 import os
+import secrets
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,16 +20,19 @@ logger = get_logger(__name__)
 
 
 class ExamEngineIntegrationService:
+
     @staticmethod
     def check_webhook_token(token: str | None) -> None:
-        """Validate the optional shared webhook token.
+        """Validate the optional shared webhook token using constant-time comparison.
 
         If `EXAM_ENGINE_WEBHOOK_TOKEN` is set in the ERP env, the incoming
         request must present it. When unset, the endpoint is open (local dev
         convenience) — set it in any non-dev deployment.
         """
         expected = os.getenv("EXAM_ENGINE_WEBHOOK_TOKEN", "")
-        if expected and token != expected:
+        if expected and (
+            not token or not secrets.compare_digest(token, expected)
+        ):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid webhook token",
@@ -55,7 +59,9 @@ class ExamEngineIntegrationService:
             payload=payload,
         )
         logger.info(
-            f"exam_engine.webhook.report_generated report_public_id={report_public_id} report_type={report_type}"
+            "exam_engine.webhook.report_generated"
+            f" report_public_id={report_public_id}"
+            f" report_type={report_type}",
         )
         return {"stored_id": record.id}
 
@@ -78,7 +84,9 @@ class ExamEngineIntegrationService:
             payload=payload,
         )
         logger.info(
-            f"exam_engine.webhook.student_at_risk student_id={student_id} is_at_risk={is_at_risk}"
+            "exam_engine.webhook.student_at_risk"
+            f" student_id={student_id}"
+            f" is_at_risk={is_at_risk}",
         )
         return {"stored_id": record.id}
 
@@ -87,14 +95,20 @@ class ExamEngineIntegrationService:
     # ------------------------------------------------------------------
 
     @staticmethod
-    async def get_dashboard_summary(db: AsyncSession) -> dict:
+    async def get_dashboard_summary(
+        db: AsyncSession,
+    ) -> dict:
         """Aggregated ns-exam stats for the admin dashboard."""
         reports = await exam_engine_report_crud.count(db)
         flags = await exam_engine_student_flag_crud.count(db)
         at_risk = await exam_engine_student_flag_crud.count_at_risk(db)
         by_type = await exam_engine_report_crud.count_by_type(db)
-        recent_reports = await exam_engine_report_crud.list_recent(db, limit=5)
-        recent_flags = await exam_engine_student_flag_crud.list_recent(db, limit=5)
+        recent_reports = await exam_engine_report_crud.list_recent(
+            db, limit=5,
+        )
+        recent_flags = await exam_engine_student_flag_crud.list_recent(
+            db, limit=5,
+        )
         return {
             "total_reports": reports,
             "total_student_flags": flags,

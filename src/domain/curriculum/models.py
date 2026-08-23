@@ -18,7 +18,9 @@ class Subject(Base, TimestampMixin, ActiveMixin, AuditMixin):
     __tablename__ = "subjects"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    subject_code = Column(String(30), nullable=False, unique=True, index=True)
+    subject_code = Column(
+        String(30), nullable=False, unique=True, index=True
+    )
     subject_name = Column(String(100), nullable=False, index=True)
     description = Column(Text, nullable=True)
     display_order = Column(Integer, default=1, nullable=False)
@@ -55,7 +57,9 @@ class Topic(Base, TimestampMixin, ActiveMixin):
         index=True,
     )
 
-    ka_topic_id = Column(String(200), unique=True, nullable=False, index=True)
+    ka_topic_id = Column(
+        String(200), unique=True, nullable=False, index=True
+    )
     topic_name = Column(String(200), nullable=False, index=True)
     description = Column(Text, nullable=True)
     display_order = Column(Integer, default=1, nullable=False)
@@ -114,7 +118,9 @@ class Topic(Base, TimestampMixin, ActiveMixin):
     )
 
     __table_args__ = (
-        UniqueConstraint("ka_topic_id", name="uq_ka_topic_topic_id"),
+        UniqueConstraint(
+            "ka_topic_id", name="uq_ka_topic_topic_id"
+        ),
         UniqueConstraint(
             "subject_id",
             "classroom_id",

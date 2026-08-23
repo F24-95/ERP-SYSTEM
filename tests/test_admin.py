@@ -23,7 +23,9 @@ class TestAdminUserCRUD:
     }
 
     async def test_create_user(self, admin_client: AsyncClient):
-        response = await admin_client.post("/admin/user", json=self.USER_CREATE_PAYLOAD)
+        response = await admin_client.post(
+            "/admin/user", json=self.USER_CREATE_PAYLOAD
+        )
         assert_created(response)
         data = response.json()
         assert data["email"] == "newuser@test.com"
@@ -31,8 +33,12 @@ class TestAdminUserCRUD:
         assert data["is_active"] is True
         assert "id" in data
 
-    async def test_create_duplicate_email(self, admin_client: AsyncClient, admin_user):
-        response = await admin_client.post("/admin/user", json=self.USER_CREATE_PAYLOAD)
+    async def test_create_duplicate_email(
+        self, admin_client: AsyncClient, admin_user
+    ):
+        response = await admin_client.post(
+            "/admin/user", json=self.USER_CREATE_PAYLOAD
+        )
         assert_created(response)
         response2 = await admin_client.post(
             "/admin/user", json=self.USER_CREATE_PAYLOAD
@@ -40,23 +46,33 @@ class TestAdminUserCRUD:
         assert_bad_request(response2)
 
     async def test_create_user_unauthorized(self, client: AsyncClient):
-        response = await client.post("/admin/user", json=self.USER_CREATE_PAYLOAD)
+        response = await client.post(
+            "/admin/user", json=self.USER_CREATE_PAYLOAD
+        )
         assert_unauthorized(response)
 
-    async def test_create_user_forbidden_student(self, student_client: AsyncClient):
+    async def test_create_user_forbidden_student(
+        self, student_client: AsyncClient
+    ):
         response = await student_client.post(
             "/admin/user", json=self.USER_CREATE_PAYLOAD
         )
         assert_forbidden(response)
 
-    async def test_create_user_forbidden_teacher(self, teacher_client: AsyncClient):
+    async def test_create_user_forbidden_teacher(
+        self, teacher_client: AsyncClient
+    ):
         response = await teacher_client.post(
             "/admin/user", json=self.USER_CREATE_PAYLOAD
         )
         assert_forbidden(response)
 
     async def test_list_users(
-        self, admin_client: AsyncClient, admin_user, teacher_user, student_user
+        self,
+        admin_client: AsyncClient,
+        admin_user,
+        teacher_user,
+        student_user,
     ):
         response = await admin_client.get("/admin/users")
         assert_ok(response)
@@ -64,7 +80,11 @@ class TestAdminUserCRUD:
         assert len(data) >= 3
 
     async def test_list_users_filter_role(
-        self, admin_client: AsyncClient, admin_user, teacher_user, student_user
+        self,
+        admin_client: AsyncClient,
+        admin_user,
+        teacher_user,
+        student_user,
     ):
         response = await admin_client.get("/admin/users?role=teacher")
         assert_ok(response)
@@ -80,7 +100,9 @@ class TestAdminUserCRUD:
         assert all(u["is_active"] is True for u in data)
 
     async def test_get_user(self, admin_client: AsyncClient, teacher_user):
-        response = await admin_client.get(f"/admin/users/{teacher_user.public_id}")
+        response = await admin_client.get(
+            f"/admin/users/{teacher_user.public_id}"
+        )
         assert_ok(response)
         data = response.json()
         assert data["email"] == teacher_user.email
@@ -110,13 +132,21 @@ class TestAdminUserCRUD:
         assert data["is_active"] is False
 
     async def test_deactivate_user(self, admin_client: AsyncClient, teacher_user):
-        response = await admin_client.delete(f"/admin/users/{teacher_user.public_id}")
+        response = await admin_client.delete(
+            f"/admin/users/{teacher_user.public_id}"
+        )
         assert_no_content(response)
 
-    async def test_deactivate_user_twice(self, admin_client: AsyncClient, teacher_user):
-        response = await admin_client.delete(f"/admin/users/{teacher_user.public_id}")
+    async def test_deactivate_user_twice(
+        self, admin_client: AsyncClient, teacher_user
+    ):
+        response = await admin_client.delete(
+            f"/admin/users/{teacher_user.public_id}"
+        )
         assert_no_content(response)
-        response2 = await admin_client.delete(f"/admin/users/{teacher_user.public_id}")
+        response2 = await admin_client.delete(
+            f"/admin/users/{teacher_user.public_id}"
+        )
         assert_no_content(response2)
 
 
@@ -231,7 +261,9 @@ class TestAdminTeacherProfiles:
 
 
 class TestAdminAdminProfiles:
-    async def test_list_admin_profiles(self, admin_client: AsyncClient, admin_user):
+    async def test_list_admin_profiles(
+        self, admin_client: AsyncClient, admin_user
+    ):
         response = await admin_client.get("/admin/admins")
         assert_ok(response)
         data = response.json()
@@ -301,19 +333,27 @@ class TestAdminAcademicsSessions:
         data = response.json()
         assert data["session_code"] == "SES-2027"
 
-    async def test_list_sessions(self, admin_client: AsyncClient, academic_session):
+    async def test_list_sessions(
+        self, admin_client: AsyncClient, academic_session
+    ):
         response = await admin_client.get("/academics/sessions")
         assert_ok(response)
         data = response.json()
         assert len(data) >= 1
 
-    async def test_get_session(self, admin_client: AsyncClient, academic_session):
-        response = await admin_client.get(f"/academics/sessions/{academic_session.id}")
+    async def test_get_session(
+        self, admin_client: AsyncClient, academic_session
+    ):
+        response = await admin_client.get(
+            f"/academics/sessions/{academic_session.id}"
+        )
         assert_ok(response)
         data = response.json()
         assert data["session_code"] == academic_session.session_code
 
-    async def test_update_session(self, admin_client: AsyncClient, academic_session):
+    async def test_update_session(
+        self, admin_client: AsyncClient, academic_session
+    ):
         response = await admin_client.put(
             f"/academics/sessions/{academic_session.id}",
             json={"description": "Updated desc"},
@@ -331,7 +371,9 @@ class TestAdminAcademicsSessions:
 
 
 class TestAdminAcademicsClassrooms:
-    async def test_create_classroom(self, admin_client: AsyncClient, academic_session):
+    async def test_create_classroom(
+        self, admin_client: AsyncClient, academic_session
+    ):
         response = await admin_client.post(
             "/academics/classrooms",
             json={
@@ -353,7 +395,9 @@ class TestAdminAcademicsClassrooms:
         assert len(data) >= 1
 
     async def test_get_classroom(self, admin_client: AsyncClient, classroom):
-        response = await admin_client.get(f"/academics/classrooms/{classroom.id}")
+        response = await admin_client.get(
+            f"/academics/classrooms/{classroom.id}"
+        )
         assert_ok(response)
         assert response.json()["class_name"] == classroom.class_name
 
@@ -365,8 +409,12 @@ class TestAdminAcademicsClassrooms:
         assert_ok(response)
         assert response.json()["section"] == "B"
 
-    async def test_deactivate_classroom(self, admin_client: AsyncClient, classroom):
-        response = await admin_client.delete(f"/academics/classrooms/{classroom.id}")
+    async def test_deactivate_classroom(
+        self, admin_client: AsyncClient, classroom
+    ):
+        response = await admin_client.delete(
+            f"/academics/classrooms/{classroom.id}"
+        )
         assert_no_content(response)
 
 
@@ -404,7 +452,9 @@ class TestAdminAcademicsSubjects:
         assert response.json()["subject_name"] == "Advanced Physics"
 
     async def test_deactivate_subject(self, admin_client: AsyncClient, subject):
-        response = await admin_client.delete(f"/academics/subjects/{subject.id}")
+        response = await admin_client.delete(
+            f"/academics/subjects/{subject.id}"
+        )
         assert_no_content(response)
 
     async def test_create_duplicate_subject_code(
@@ -423,7 +473,11 @@ class TestAdminAcademicsSubjects:
 
 class TestAdminAcademicsClassSubjects:
     async def test_create_class_subject(
-        self, admin_client: AsyncClient, academic_session, classroom, subject
+        self,
+        admin_client: AsyncClient,
+        academic_session,
+        classroom,
+        subject,
     ):
         response = await admin_client.post(
             "/academics/class-subjects",
@@ -553,13 +607,19 @@ class TestAdminOperationsTeacherAssignments:
         db_session.add(ts)
         await db_session.flush()
 
-        response = await admin_client.delete(f"/operations/teacher-assignments/{ts.id}")
+        response = await admin_client.delete(
+            f"/operations/teacher-assignments/{ts.id}"
+        )
         assert_no_content(response)
 
 
 class TestAdminOperationsStudentEnrollments:
     async def test_enroll_student(
-        self, admin_client: AsyncClient, student_user, academic_session, classroom
+        self,
+        admin_client: AsyncClient,
+        student_user,
+        academic_session,
+        classroom,
     ):
         response = await admin_client.post(
             "/operations/enroll-student",
@@ -633,7 +693,9 @@ class TestAdminOperationsStudentEnrollments:
         db_session.add(sc)
         await db_session.flush()
 
-        response = await admin_client.delete(f"/operations/student-enrollments/{sc.id}")
+        response = await admin_client.delete(
+            f"/operations/student-enrollments/{sc.id}"
+        )
         assert_no_content(response)
 
 
@@ -644,18 +706,24 @@ class TestAdminUsersMe:
         assert response.json()["email"] == admin_user.email
 
     async def test_update_me(self, admin_client: AsyncClient, admin_user):
-        response = await admin_client.patch("/users/me", json={"phone": "5556667778"})
+        response = await admin_client.patch(
+            "/users/me", json={"phone": "5556667778"}
+        )
         assert_ok(response)
         assert response.json()["phone"] == "5556667778"
 
-    async def test_get_user_by_public_id(self, admin_client: AsyncClient, teacher_user):
+    async def test_get_user_by_public_id(
+        self, admin_client: AsyncClient, teacher_user
+    ):
         response = await admin_client.get(f"/users/{teacher_user.public_id}")
         assert_ok(response)
         assert response.json()["email"] == teacher_user.email
 
 
 class TestAdminRoleIsolation:
-    async def test_student_cannot_create_user(self, student_client: AsyncClient):
+    async def test_student_cannot_create_user(
+        self, student_client: AsyncClient
+    ):
         response = await student_client.post(
             "/admin/user",
             json={
@@ -670,10 +738,14 @@ class TestAdminRoleIsolation:
     async def test_teacher_cannot_deactivate_user(
         self, teacher_client: AsyncClient, student_user
     ):
-        response = await teacher_client.delete(f"/admin/users/{student_user.public_id}")
+        response = await teacher_client.delete(
+            f"/admin/users/{student_user.public_id}"
+        )
         assert_forbidden(response)
 
-    async def test_unauthenticated_cannot_access_admin(self, client: AsyncClient):
+    async def test_unauthenticated_cannot_access_admin(
+        self, client: AsyncClient
+    ):
         response = await client.get("/admin/users")
         assert_unauthorized(response)
 
@@ -687,7 +759,9 @@ class TestAdminRoleIsolation:
             select(AdminProfile).filter_by(user_id=admin_user.id)
         )
         profile = result.scalars().first()
-        response = await student_client.delete(f"/admin/admins/{profile.id}")
+        response = await student_client.delete(
+            f"/admin/admins/{profile.id}"
+        )
         assert_forbidden(response)
 
     async def test_teacher_can_list_students(

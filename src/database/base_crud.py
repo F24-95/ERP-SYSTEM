@@ -111,6 +111,10 @@ class AsyncBaseCRUD(Generic[T]):
                 "Database integrity constraint violated during update",
                 details={"error": str(exc.orig)},
             )
+        except Exception:
+            await session.rollback()
+            logger.exception(f"Unexpected error updating {self.model.__name__} id={id}")
+            raise
 
     async def delete(self, session: AsyncSession, id: Any) -> bool:
         """Hard delete by primary key."""

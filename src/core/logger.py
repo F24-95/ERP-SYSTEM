@@ -57,10 +57,13 @@ class ColorFormatter(logging.Formatter):
         usr_id = user_id_ctx.get()
         ctx = f"[req:{req_id} usr:{usr_id}]" if req_id != "-" else ""
 
-        base_format = f"%(asctime)s [%(levelname)s] {ctx} %(name)s.%(funcName)s:%(lineno)d - %(message)s"
-        base = logging.Formatter(base_format, datefmt="%Y-%m-%d %H:%M:%S").format(
-            record,
+        base_format = (
+            f"%(asctime)s [%(levelname)s] {ctx} "
+            f"%(name)s.%(funcName)s:%(lineno)d - %(message)s"
         )
+        base = logging.Formatter(
+            base_format, datefmt="%Y-%m-%d %H:%M:%S"
+        ).format(record)
 
         if not sys.stdout.isatty():
             return base
@@ -70,7 +73,7 @@ class ColorFormatter(logging.Formatter):
 
 
 def setup_logger(
-    name: str = "school_erp",
+    name: str = "src",
     log_dir: str = "logs",
     level_str: str = "INFO",
     json_output: bool = False,
@@ -101,14 +104,20 @@ def setup_logger(
     file_handler.setFormatter(JSONFormatter())
     logger.addHandler(file_handler)
 
-    logger.propagate = False
+    logger.propagate = True
     return logger
 
 
-logger = setup_logger()
+# Initialize top-level logger for the application
+_app_logger = setup_logger("src")
+# Also bind root for modules outside src
+setup_logger("school_erp")
 
 
 def get_logger(name: str = None) -> logging.Logger:
+    """Return a logger that propagates to the single shared handler hierarchy."""
     if name:
-        return setup_logger(name)
-    return logger
+        child_logger = logging.getLogger(name)
+        child_logger.propagate = True
+        return child_logger
+    return _app_logger

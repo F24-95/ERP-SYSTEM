@@ -31,7 +31,10 @@ engine = create_async_engine(
     DATABASE_URL,
     echo=os.getenv("SQL_ECHO", "False").lower() == "true",
     future=True,
-    # pool_size and max_overflow can be configured here for Postgres
+    pool_pre_ping=True,
+    pool_size=int(os.getenv("DB_POOL_SIZE", "10")),
+    max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "20")),
+    pool_recycle=int(os.getenv("DB_POOL_RECYCLE", "1800")),
 )
 
 AsyncSessionLocal = async_sessionmaker(

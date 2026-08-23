@@ -59,7 +59,11 @@ class ChatRoom(Base, TimestampMixin, ActiveMixin):
     )
 
     __table_args__ = (
-        UniqueConstraint("student_class_id", "teacher_subject_id", name="uq_chat_room"),
+        UniqueConstraint(
+            "student_class_id",
+            "teacher_subject_id",
+            name="uq_chat_room",
+        ),
         Index("idx_chat_room", "teacher_subject_id", "student_class_id"),
     )
 
@@ -74,7 +78,12 @@ class ChatMessage(Base, TimestampMixin, ActiveMixin):
         nullable=False,
         index=True,
     )
-    sender_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    sender_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+    )
 
     message = Column(Text, nullable=False)
     is_edited = Column(Boolean, default=False)
@@ -83,4 +92,6 @@ class ChatMessage(Base, TimestampMixin, ActiveMixin):
     chat_room = relationship("ChatRoom", back_populates="messages")
     sender = relationship("User")
 
-    __table_args__ = (Index("idx_chat_message", "chat_room_id", "created_at"),)
+    __table_args__ = (
+        Index("idx_chat_message", "chat_room_id", "created_at"),
+    )

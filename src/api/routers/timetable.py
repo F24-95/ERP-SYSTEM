@@ -255,7 +255,7 @@ async def create_availability(
     db: AsyncSession = Depends(get_db),
 ):
     """Create teacher availability."""
-    return await TimetableService.create_availability(db, data.model_dump())
+    return await TimetableService.create_availability(db, data.model_dump(), current_user)
 
 
 @router.put(
@@ -273,6 +273,7 @@ async def update_availability(
         db,
         availability_id,
         data.model_dump(exclude_unset=True),
+        current_user,
     )
     if not updated:
         raise ResourceNotFoundException("Availability not found")
@@ -286,7 +287,7 @@ async def delete_availability(
     db: AsyncSession = Depends(get_db),
 ):
     """Withdraw a teacher availability slot. Was missing entirely."""
-    updated = await TimetableService.deactivate_availability(db, availability_id)
+    updated = await TimetableService.deactivate_availability(db, availability_id, current_user)
     if not updated:
         raise ResourceNotFoundException("Availability not found")
     return MessageResponse(message="Availability deleted")

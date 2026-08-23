@@ -12,8 +12,9 @@ Phase 5 Webhook Hardening: Added request size limit and structured logging.
 """
 
 import os
+import secrets
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import require_role
@@ -41,14 +42,23 @@ router = APIRouter(tags=["Exam Engine Integration"])
 MAX_WEBHOOK_PAYLOAD_SIZE = 1024 * 1024
 
 
-async def require_webhook_token(
-    x_webhook_token: str | None = Header(default=None, alias="X-Webhook-Token"),
-) -> str:
-    """Validate webhook token from X-Webhook-Token header.
+async def validate_webhook_payload_size(request: Request) -> None:
+    """Enforce maximum webhook payload size (1MB)."""
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > MAX_WEBHOOK_PAYLOAD_SIZE:
+        logger.warning(f"Webhook payload too large: {content_length} bytes")
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Payload exceeds maximum allowed size of {MAX_WEBHOOK_PAYLOAD_SIZE} bytes (1MB)",
+        )
 
-    Phase 1 Security: Webhook token is now REQUIRED (not optional).
-    If EXAM_ENGINE_WEBHOOK_TOKEN is not configured, return 500.
-    """
+
+async def require_webhook_token(
+    request: Request,
+    x_webhook_token: str | None = Header(default=None, alias="X-Webhook-Token"),
+    _: None = Depends(validate_webhook_payload_size),
+) -> str:
+    """Validate webhook token from X-Webhook-Token header using constant-time comparison."""
     expected = os.getenv("EXAM_ENGINE_WEBHOOK_TOKEN", "")
     if not expected:
         logger.error("webhook.token_not_configured")
@@ -56,7 +66,7 @@ async def require_webhook_token(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Webhook token not configured on server",
         )
-    if not x_webhook_token or x_webhook_token != expected:
+    if not x_webhook_token or not secrets.compare_digest(x_webhook_token, expected):
         logger.warning("webhook.invalid_token")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

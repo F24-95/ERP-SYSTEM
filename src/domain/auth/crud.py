@@ -20,7 +20,11 @@ class OtpCodeCRUD(AsyncBaseCRUD[OtpCode]):
     ):
         result = await session.execute(
             select(OtpCode)
-            .filter_by(user_id=user_id, purpose=purpose, is_used=False)
+            .filter_by(
+                user_id=user_id,
+                purpose=purpose,
+                is_used=False,
+            )
             .order_by(OtpCode.id.desc()),
         )
         return result.scalars().first()

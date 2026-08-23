@@ -1,12 +1,20 @@
-"""CRUD helpers for the Exam Engine integration domain."""
+"""CRUD helpers for the Exam Engine integration domain.
+
+Subclasses AsyncBaseCRUD to follow the project-wide CRUD standard while providing
+domain-specific deduped inserts and aggregation queries.
+"""
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.database.base_crud import AsyncBaseCRUD
 from src.domain.exam_engine.models import ExamEngineReport, ExamEngineStudentFlag
 
 
-class ExamEngineReportCrud:
+class ExamEngineReportCrud(AsyncBaseCRUD[ExamEngineReport]):
+    def __init__(self):
+        super().__init__(ExamEngineReport)
+
     async def create(
         self,
         db: AsyncSession,
@@ -20,7 +28,9 @@ class ExamEngineReportCrud:
     ) -> ExamEngineReport:
         """Insert a report webhook record. Dedups by report_public_id."""
         existing = await db.scalar(
-            select(ExamEngineReport).filter_by(report_public_id=report_public_id),
+            select(ExamEngineReport).filter_by(
+                report_public_id=report_public_id,
+            ),
         )
         if existing:
             return existing
@@ -36,24 +46,40 @@ class ExamEngineReportCrud:
         await db.flush()
         return obj
 
-    async def list_recent(self, db: AsyncSession, limit: int = 50) -> list[ExamEngineReport]:
+    async def list_recent(
+        self,
+        db: AsyncSession,
+        limit: int = 50,
+    ) -> list[ExamEngineReport]:
         result = await db.execute(
-            select(ExamEngineReport).order_by(ExamEngineReport.received_at.desc()).limit(limit),
+            select(ExamEngineReport)
+            .order_by(ExamEngineReport.received_at.desc())
+            .limit(limit),
         )
         return list(result.scalars().all())
 
     async def count(self, db: AsyncSession) -> int:
-        return await db.scalar(select(func.count()).select_from(ExamEngineReport)) or 0
+        return (
+            await db.scalar(
+                select(func.count()).select_from(ExamEngineReport),
+            )
+            or 0
+        )
 
     async def count_by_type(self, db: AsyncSession) -> dict[str, int]:
         rows = await db.execute(
-            select(ExamEngineReport.report_type, func.count())
-            .group_by(ExamEngineReport.report_type),
+            select(
+                ExamEngineReport.report_type,
+                func.count(),
+            ).group_by(ExamEngineReport.report_type),
         )
         return {rtype: int(cnt) for rtype, cnt in rows.all()}
 
 
-class ExamEngineStudentFlagCrud:
+class ExamEngineStudentFlagCrud(AsyncBaseCRUD[ExamEngineStudentFlag]):
+    def __init__(self):
+        super().__init__(ExamEngineStudentFlag)
+
     async def create(
         self,
         db: AsyncSession,
@@ -75,7 +101,11 @@ class ExamEngineStudentFlagCrud:
         await db.flush()
         return obj
 
-    async def list_recent(self, db: AsyncSession, limit: int = 50) -> list[ExamEngineStudentFlag]:
+    async def list_recent(
+        self,
+        db: AsyncSession,
+        limit: int = 50,
+    ) -> list[ExamEngineStudentFlag]:
         result = await db.execute(
             select(ExamEngineStudentFlag)
             .order_by(ExamEngineStudentFlag.received_at.desc())
@@ -84,14 +114,23 @@ class ExamEngineStudentFlagCrud:
         return list(result.scalars().all())
 
     async def count(self, db: AsyncSession) -> int:
-        return await db.scalar(select(func.count()).select_from(ExamEngineStudentFlag)) or 0
+        return (
+            await db.scalar(
+                select(func.count()).select_from(
+                    ExamEngineStudentFlag,
+                ),
+            )
+            or 0
+        )
 
     async def count_at_risk(self, db: AsyncSession) -> int:
         return (
             await db.scalar(
                 select(func.count())
                 .select_from(ExamEngineStudentFlag)
-                .filter(ExamEngineStudentFlag.is_at_risk.is_(True)),
+                .filter(
+                    ExamEngineStudentFlag.is_at_risk.is_(True),
+                ),
             )
             or 0
         )

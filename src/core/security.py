@@ -20,6 +20,13 @@ if not SECRET_KEY:
         "Example: SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_hex(32))')",
     )
 
+if len(SECRET_KEY) < 32:
+    raise RuntimeError(
+        "SECRET_KEY must be at least 32 characters long for security. "
+        f"Current length: {len(SECRET_KEY)}. "
+        "Example: SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_hex(32))')",
+    )
+
 
 def hash_password(password: str) -> str:
     salt = bcrypt.gensalt()
@@ -48,14 +55,31 @@ def create_refresh_token(data: dict) -> str:
 
 
 def verify_token(token: str) -> dict[str, Any]:
-    """Verify standard access or refresh tokens and return the payload."""
+    """Verify standard access or refresh tokens and return the payload.
+    Rejects tokens that have a purpose claim (e.g. password_reset).
+    """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         if "sub" not in payload:
-            raise AuthenticationException("Invalid token payload")
+            raise AuthenticationException("Invalid token")
+        if "purpose" in payload:
+            raise AuthenticationException("Invalid token")
         return payload
-    except JWTError as e:
-        raise AuthenticationException(f"Token validation failed: {e!s}")
+    except JWTError:
+        raise AuthenticationException("Invalid token")
+
+
+def verify_purpose_token(token: str, expected_purpose: str) -> dict[str, Any]:
+    """Verify out-of-band single-purpose tokens (e.g. password_reset, email_verify)."""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if "sub" not in payload:
+            raise AuthenticationException("Invalid token")
+        if payload.get("purpose") != expected_purpose:
+            raise AuthenticationException("Invalid token")
+        return payload
+    except JWTError:
+        raise AuthenticationException("Invalid token")
 
 
 def decode_token_ignoring_expiry(token: str) -> dict[str, Any] | None:

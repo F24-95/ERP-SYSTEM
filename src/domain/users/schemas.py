@@ -7,7 +7,7 @@ from src.core.enums import UserRole
 
 class UserBase(BaseModel):
     email: EmailStr
-    phone: str = Field(..., max_length=20)
+    phone: str = Field(..., min_length=7, max_length=20)
     role: UserRole
 
 
@@ -20,9 +20,12 @@ class AdminUserCreate(UserBase):
     # Allows admin to specify things
 
 
-class UserResponse(UserBase):
+class UserResponse(BaseModel):
     id: int
     public_id: str
+    email: EmailStr
+    phone: str
+    role: UserRole
     is_active: bool
     student_id: str | None = None
     teacher_id: str | None = None
@@ -32,7 +35,7 @@ class UserResponse(UserBase):
 
 
 class UserUpdate(BaseModel):
-    phone: str | None = Field(None, max_length=20)
+    phone: str | None = Field(None, min_length=7, max_length=20)
     is_active: bool | None = None
 
 

@@ -12,7 +12,10 @@ logger = get_logger(__name__)
 
 class SubjectService:
     @staticmethod
-    async def create(db: AsyncSession, data: SubjectCreate) -> Subject:
+    async def create(
+        db: AsyncSession,
+        data: SubjectCreate,
+    ) -> Subject:
         return await subject_crud.create(db, data.model_dump())
 
     @staticmethod
@@ -24,18 +27,28 @@ class SubjectService:
         return await subject_crud.get_all(db, skip=skip, limit=limit)
 
     @staticmethod
-    async def get(db: AsyncSession, subject_id: int) -> Subject:
+    async def get(
+        db: AsyncSession,
+        subject_id: int,
+    ) -> Subject:
         return await subject_crud.get_or_raise(db, subject_id)
 
     @staticmethod
-    async def update(db: AsyncSession, subject_id: int, data: SubjectUpdate) -> Subject:
+    async def update(
+        db: AsyncSession,
+        subject_id: int,
+        data: SubjectUpdate,
+    ) -> Subject:
         payload = data.model_dump(exclude_unset=True)
         if not payload:
             return await subject_crud.get_or_raise(db, subject_id)
         return await subject_crud.update(db, subject_id, payload)
 
     @staticmethod
-    async def deactivate(db: AsyncSession, subject_id: int) -> None:
+    async def deactivate(
+        db: AsyncSession,
+        subject_id: int,
+    ) -> None:
         await subject_crud.get_or_raise(db, subject_id)
         await subject_crud.update(db, subject_id, {"is_active": False})
         logger.info(f"Subject deactivated: id={subject_id}")
@@ -43,7 +56,10 @@ class SubjectService:
 
 class TopicService:
     @staticmethod
-    async def create_topic(db: AsyncSession, data: dict) -> Topic:
+    async def create_topic(
+        db: AsyncSession,
+        data: dict,
+    ) -> Topic:
         return await topic_crud.create(db, data)
 
     @staticmethod
@@ -61,18 +77,28 @@ class TopicService:
         return list((await db.execute(query)).scalars().all())
 
     @staticmethod
-    async def get_topic(db: AsyncSession, topic_id: int) -> Topic:
+    async def get_topic(
+        db: AsyncSession,
+        topic_id: int,
+    ) -> Topic:
         topic = await topic_crud.get(db, topic_id)
         if not topic:
             raise ResourceNotFoundException("Topic not found")
         return topic
 
     @staticmethod
-    async def update_topic(db: AsyncSession, topic_id: int, data: dict) -> Topic:
+    async def update_topic(
+        db: AsyncSession,
+        topic_id: int,
+        data: dict,
+    ) -> Topic:
         await TopicService.get_topic(db, topic_id)
         return await topic_crud.update(db, topic_id, data)
 
     @staticmethod
-    async def delete_topic(db: AsyncSession, topic_id: int) -> None:
+    async def delete_topic(
+        db: AsyncSession,
+        topic_id: int,
+    ) -> None:
         await TopicService.get_topic(db, topic_id)
         await topic_crud.update(db, topic_id, {"is_active": False})

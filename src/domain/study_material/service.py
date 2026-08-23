@@ -1,5 +1,5 @@
+import asyncio
 import os
-import shutil
 from datetime import datetime
 
 from fastapi import UploadFile
@@ -7,12 +7,20 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.enums import MaterialType
-from src.core.exceptions import ResourceNotFoundException, ValidationException
+from src.core.exceptions import (
+    BusinessLogicException,
+    ResourceNotFoundException,
+    ValidationException,
+)
 from src.core.logger import get_logger
 from src.domain.study_material.crud import study_material_crud
 from src.domain.study_material.models import StudyMaterial
 
 logger = get_logger(__name__)
+
+MAX_STUDY_MATERIAL_FILE_SIZE = int(
+    os.getenv("MAX_STUDY_MATERIAL_FILE_SIZE", 50 * 1024 * 1024)
+)
 
 # Ported verbatim from legacy StudyMaterialService.ALLOWED_EXTENSIONS.
 ALLOWED_EXTENSIONS = {
@@ -76,12 +84,29 @@ def _build_storage_name(material_id: str, filename: str) -> str:
     return f"{material_id}_{timestamp}_{rand}{ext}"
 
 
-def _save_upload(file: UploadFile, absolute_path: str) -> int:
+def _save_upload(
+    file: UploadFile,
+    absolute_path: str,
+    max_size: int = MAX_STUDY_MATERIAL_FILE_SIZE,
+) -> int:
     os.makedirs(os.path.dirname(absolute_path), exist_ok=True)
+    total_written = 0
+    chunk_size = 1024 * 1024  # 1MB chunks
     with open(absolute_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        while True:
+            chunk = file.file.read(chunk_size)
+            if not chunk:
+                break
+            total_written += len(chunk)
+            if total_written > max_size:
+                buffer.close()
+                _safe_delete_file(absolute_path)
+                raise BusinessLogicException(
+                    f"File size exceeds maximum allowed limit of {max_size // (1024 * 1024)}MB"
+                )
+            buffer.write(chunk)
         buffer.flush()
-        return os.path.getsize(absolute_path)
+    return total_written
 
 
 def _safe_delete_file(path: str | None) -> None:
@@ -174,7 +199,7 @@ class StudyMaterialService:
 
         stored_name = _build_storage_name(material.material_id, file.filename)
         abs_path = os.path.join(_upload_root(), stored_name)
-        size = _save_upload(file, abs_path)
+        size = await asyncio.to_thread(_save_upload, file, abs_path)
 
         material.file_name = file.filename
         material.file_url = f"/uploads/study_materials/{stored_name}"
@@ -230,7 +255,7 @@ class StudyMaterialService:
             material.material_type = mt
             stored_name = _build_storage_name(material.material_id, file.filename)
             abs_path = os.path.join(_upload_root(), stored_name)
-            size = _save_upload(file, abs_path)
+            size = await asyncio.to_thread(_save_upload, file, abs_path)
 
             material.file_name = file.filename
             material.file_url = f"/uploads/study_materials/{stored_name}"

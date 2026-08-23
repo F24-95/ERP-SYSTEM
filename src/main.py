@@ -30,7 +30,13 @@ logger = get_logger(__name__)
 
 class RequestContextMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+        raw_id = request.headers.get("X-Request-ID", "")
+        import re
+        request_id = (
+            re.sub(r"[^a-zA-Z0-9\-]", "", raw_id)[:64] if raw_id else str(uuid.uuid4())
+        )
+        if not request_id:
+            request_id = str(uuid.uuid4())
         request_id_ctx.set(request_id)
 
         start_time = time.time()
@@ -56,11 +62,15 @@ def create_app() -> FastAPI:
     )
 
     # CORS - Restrict in production via CORS_ORIGINS env var
-    cors_origins = os.getenv("CORS_ORIGINS", "*").split(",")
+    cors_origins_raw = os.getenv("CORS_ORIGINS", "").strip()
+    if cors_origins_raw:
+        cors_origins = [o.strip() for o in cors_origins_raw.split(",") if o.strip()]
+    else:
+        cors_origins = ["http://localhost:3000", "http://localhost:8000"]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=cors_origins if cors_origins != ["*"] else ["*"],
-        allow_credentials=cors_origins != ["*"],
+        allow_origins=cors_origins,
+        allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -141,7 +151,7 @@ def create_app() -> FastAPI:
         # Set AUTO_CREATE_TABLES=false once Alembic migrations are the
         # source of truth (staging/production), so the two mechanisms don't
         # fight each other.
-        if os.getenv("AUTO_CREATE_TABLES", "true").lower() == "true":
+        if os.getenv("AUTO_CREATE_TABLES", "false").lower() == "true":
             async with engine.begin() as conn:
                 from sqlalchemy import text
                 await conn.execute(text("CREATE SCHEMA IF NOT EXISTS public"))

@@ -37,7 +37,11 @@ def _build_empty_report(profile: StudentProfile, student_profile_id: int) -> dic
     gender_val = None
     try:
         if profile.gender:
-            gender_val = profile.gender.value if hasattr(profile.gender, 'value') else str(profile.gender)
+            gender_val = (
+                profile.gender.value
+                if hasattr(profile.gender, 'value')
+                else str(profile.gender)
+            )
     except Exception:
         gender_val = None
 
@@ -49,17 +53,35 @@ def _build_empty_report(profile: StudentProfile, student_profile_id: int) -> dic
             "admission_number": getattr(profile, 'admission_number', None),
             "registration_number": getattr(profile, 'registration_number', None),
             "gender": gender_val,
-            "date_of_birth": str(profile.date_of_birth) if profile.date_of_birth else None,
+            "date_of_birth": (
+                str(profile.date_of_birth) if profile.date_of_birth else None
+            ),
             "parent_name": getattr(profile, 'parent_name', None),
             "parent_phone": getattr(profile, 'parent_phone', None),
             "address": getattr(profile, 'address', None),
         },
-        "enrollment": {"classroom_id": None, "class_name": None, "roll_number": None, "status": None, "academic_session": None},
-        "attendance": {"total_classes": 0, "present": 0, "absent": 0, "percentage": 0},
+        "enrollment": {
+            "classroom_id": None,
+            "class_name": None,
+            "roll_number": None,
+            "status": None,
+            "academic_session": None,
+        },
+        "attendance": {
+            "total_classes": 0,
+            "present": 0,
+            "absent": 0,
+            "percentage": 0,
+        },
         "subjects": [],
         "exams": [],
         "assignments": [],
-        "fees": {"total": 0, "paid": 0, "pending": 0, "records": []},
+        "fees": {
+            "total": 0,
+            "paid": 0,
+            "pending": 0,
+            "records": [],
+        },
     }
 
 
@@ -80,8 +102,14 @@ def _build_full_report_dict(
     paid_fee = 0.0
     fee_records = []
     try:
-        total_fee = sum((float(getattr(f, 'total_amount', 0) or 0) for f in fees), 0.0)
-        paid_fee = sum((float(getattr(f, 'paid_amount', 0) or 0) for f in fees), 0.0)
+        total_fee = sum(
+            (float(getattr(f, 'total_amount', 0) or 0) for f in fees),
+            0.0,
+        )
+        paid_fee = sum(
+            (float(getattr(f, 'paid_amount', 0) or 0) for f in fees),
+            0.0,
+        )
         fee_records = [
             {
                 "id": getattr(f, 'id', 0),
@@ -90,17 +118,28 @@ def _build_full_report_dict(
                 "total": float(getattr(f, 'total_amount', 0) or 0),
                 "paid": float(getattr(f, 'paid_amount', 0) or 0),
                 "status": getattr(f, 'status', 'UNKNOWN'),
-                "due_date": str(getattr(f, 'due_date', '')) if getattr(f, 'due_date', None) else None,
+                "due_date": (
+                    str(getattr(f, 'due_date', ''))
+                    if getattr(f, 'due_date', None)
+                    else None
+                ),
             }
             for f in fees
         ]
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug(
+            f"Failed to process fee records for report: {exc}",
+            exc_info=True,
+        )
 
     gender_val = None
     try:
         if profile.gender:
-            gender_val = profile.gender.value if hasattr(profile.gender, 'value') else str(profile.gender)
+            gender_val = (
+                profile.gender.value
+                if hasattr(profile.gender, 'value')
+                else str(profile.gender)
+            )
     except Exception:
         gender_val = None
 
@@ -126,7 +165,9 @@ def _build_full_report_dict(
         },
         "enrollment": {
             "classroom_id": getattr(enrollment, 'classroom_id', None),
-            "class_name": getattr(classroom, 'display_name', None) if classroom else None,
+            "class_name": (
+                getattr(classroom, 'display_name', None) if classroom else None
+            ),
             "roll_number": getattr(enrollment, 'roll_number', None),
             "status": getattr(enrollment, 'status', None),
             "academic_session": session_name,
@@ -135,7 +176,9 @@ def _build_full_report_dict(
             "total_classes": getattr(attendance, 'total_classes', 0) or 0,
             "present": getattr(attendance, 'present_classes', 0) or 0,
             "absent": getattr(attendance, 'absent_classes', 0) or 0,
-            "percentage": round(getattr(attendance, 'attendance_percentage', 0) or 0, 1),
+            "percentage": round(
+                getattr(attendance, 'attendance_percentage', 0) or 0, 1
+            ),
         },
         "subjects": subjects or [],
         "exams": exam_results or [],
@@ -190,7 +233,11 @@ def _render_report_pdf(
             c.drawString(
                 50,
                 y,
-                f"{row['subject_name']}: {row['point_earned']}/{row['point_available']} ({row['percentage_earned']:.1f}%)",
+                (
+                    f"{row['subject_name']}: "
+                    f"{row['point_earned']}/{row['point_available']} "
+                    f"({row['percentage_earned']:.1f}%)"
+                ),
             )
             y -= 14
             if y < 60:
@@ -206,7 +253,11 @@ def _render_report_pdf(
             c.drawString(
                 50,
                 y,
-                f"{row['topic_name']}: {row['point_earned']}/{row['point_available']} ({row['percentage_earned']:.1f}%)",
+                (
+                    f"{row['topic_name']}: "
+                    f"{row['point_earned']}/{row['point_available']} "
+                    f"({row['percentage_earned']:.1f}%)"
+                ),
             )
             y -= 14
             if y < 60:
@@ -217,7 +268,12 @@ def _render_report_pdf(
         c.save()
         return buf.getvalue()
     except Exception:
-        text = f"Progress Report: {student_name}\nPeriod: {data_start_date} to {data_end_date}\nSubjects: {subject_rows}\nTopics: {topic_rows}"
+        text = (
+            f"Progress Report: {student_name}\n"
+            f"Period: {data_start_date} to {data_end_date}\n"
+            f"Subjects: {subject_rows}\n"
+            f"Topics: {topic_rows}"
+        )
         return text.encode("utf-8")
 
 
@@ -296,7 +352,9 @@ class StudentReportService:
 
         subject_rows, topic_rows = [], []
         for sp in subject_progress:
-            subject = await db.get(Subject, sp.subject_id) if sp.subject_id else None
+            subject = (
+                await db.get(Subject, sp.subject_id) if sp.subject_id else None
+            )
             subject_rows.append(
                 {
                     "subject_name": subject.subject_name if subject else "Unknown",
@@ -390,7 +448,8 @@ class StudentReportService:
 
         await db.flush()
         logger.info(
-            f"Report generated for student_profile={student_profile_id} period={data_start_date}..{data_end_date}",
+            f"Report generated for student_profile={student_profile_id} "
+            f"period={data_start_date}..{data_end_date}",
         )
 
         # Re-fetch with eager-loaded link collections so the caller (the
@@ -469,7 +528,11 @@ class StudentReportService:
         await student_report_crud.delete(db, report.id)
 
     @staticmethod
-    async def get_activity_report(db: AsyncSession, report_id: int, current_user: User):
+    async def get_activity_report(
+        db: AsyncSession,
+        report_id: int,
+        current_user: User,
+    ):
         await StudentReportService.get_report(db, report_id, current_user)
         return await student_activity_report_crud.get_by(db, report_id=report_id)
 
@@ -509,11 +572,15 @@ class StudentReportService:
     ) -> None:
         item = await student_subject_progress_report_crud.get(db, item_id)
         if not item:
-            raise ResourceNotFoundException("Subject progress report item not found")
+            raise ResourceNotFoundException(
+                "Subject progress report item not found"
+            )
         await StudentReportService._check_view_access(
             db,
             (
-                await StudentReportService.get_report(db, item.report_id, current_user)
+                await StudentReportService.get_report(
+                    db, item.report_id, current_user
+                )
             ).student_profile_id,
             current_user,
         )
@@ -539,7 +606,9 @@ class StudentReportService:
     ) -> None:
         item = await student_topic_progress_report_crud.get(db, item_id)
         if not item:
-            raise ResourceNotFoundException("Topic progress report item not found")
+            raise ResourceNotFoundException(
+                "Topic progress report item not found"
+            )
         await StudentReportService.get_report(db, item.report_id, current_user)
         await student_topic_progress_report_crud.delete(db, item_id)
 
@@ -585,9 +654,13 @@ class StudentReportService:
         current_user: User,
     ):
         await StudentReportService.get_report(db, report_id, current_user)
-        existing = await zoom_interaction_report_crud.get_by(db, report_id=report_id)
+        existing = await zoom_interaction_report_crud.get_by(
+            db, report_id=report_id
+        )
         if existing:
-            return await zoom_interaction_report_crud.update(db, existing.id, data)
+            return await zoom_interaction_report_crud.update(
+                db, existing.id, data
+            )
         return await zoom_interaction_report_crud.create(
             db,
             {**data, "report_id": report_id},
@@ -608,8 +681,12 @@ class StudentReportService:
             "png": "png_document",
         }.get(doc_type)
         if not field:
-            raise BusinessLogicException("doc_type must be one of: pdf, html, png")
-        return await student_report_crud.update(db, report_id, {field: content})
+            raise BusinessLogicException(
+                "doc_type must be one of: pdf, html, png"
+            )
+        return await student_report_crud.update(
+            db, report_id, {field: content}
+        )
 
     @staticmethod
     async def get_document(
@@ -618,14 +695,18 @@ class StudentReportService:
         doc_type: str,
         current_user: User,
     ) -> bytes:
-        report = await StudentReportService.get_report(db, report_id, current_user)
+        report = await StudentReportService.get_report(
+            db, report_id, current_user
+        )
         field = {
             "pdf": "pdf_document",
             "html": "html_document",
             "png": "png_document",
         }.get(doc_type)
         if not field:
-            raise BusinessLogicException("doc_type must be one of: pdf, html, png")
+            raise BusinessLogicException(
+                "doc_type must be one of: pdf, html, png"
+            )
         content = getattr(report, field)
         if not content:
             raise ResourceNotFoundException(
@@ -634,7 +715,7 @@ class StudentReportService:
         return content
 
     # =========================================================================
-    # Full Student Report — aggregated ERP-native data for the report page.
+    # Full Student Report -- aggregated ERP-native data for the report page.
     # =========================================================================
 
     @staticmethod
@@ -648,7 +729,11 @@ class StudentReportService:
         profile, enrollment, attendance, subject-wise exam & assignment
         results, and fee summary for the selected academic session.
         """
-        from src.domain.academics.models import AcademicSession, ClassRoom, ClassSubject
+        from src.domain.academics.models import (
+            AcademicSession,
+            ClassRoom,
+            ClassSubject,
+        )
         from src.domain.assignments.models import Assignment, AssignmentResult
         from src.domain.curriculum.models import Subject
         from src.domain.exams.models import Exam, ExamResult
@@ -666,7 +751,8 @@ class StudentReportService:
         if not profile:
             raise ResourceNotFoundException("Student profile not found")
 
-        # Find enrollment: use explicit session_id if provided, else current session, else latest
+        # Find enrollment: use explicit session_id if provided,
+        # else current session, else latest
         enrollment = None
         target_session = None
 
@@ -697,7 +783,9 @@ class StudentReportService:
                 .order_by(StudentClass.academic_sessions_id.desc()),
             )
             if enrollment and not target_session:
-                target_session = await db.get(AcademicSession, enrollment.academic_sessions_id)
+                target_session = await db.get(
+                    AcademicSession, enrollment.academic_sessions_id
+                )
         if not enrollment:
             return _build_empty_report(profile, student_profile_id)
 
@@ -710,17 +798,24 @@ class StudentReportService:
             session_name = getattr(target_session, 'session_name', None)
         elif enrollment.academic_sessions_id:
             try:
-                _sess = await db.get(AcademicSession, enrollment.academic_sessions_id)
-                session_name = getattr(_sess, 'session_name', None) if _sess else None
+                _sess = await db.get(
+                    AcademicSession, enrollment.academic_sessions_id
+                )
+                session_name = (
+                    getattr(_sess, 'session_name', None) if _sess else None
+                )
             except Exception:
                 session_name = None
 
         # Attendance
         attendance = await db.scalar(
-            select(StudentAttendance).filter_by(student_class_id=enrollment.id),
+            select(StudentAttendance).filter_by(
+                student_class_id=enrollment.id
+            ),
         )
 
-        # Subjects for this classroom — build maps keyed by class_subject_id AND subject_id
+        # Subjects for this classroom -- build maps keyed by
+        # class_subject_id AND subject_id
         class_subjects = list(
             (
                 await db.execute(
@@ -768,7 +863,9 @@ class StudentReportService:
         exam_results_raw = list(
             (
                 await db.execute(
-                    select(ExamResult).filter_by(student_class_id=enrollment.id)
+                    select(ExamResult).filter_by(
+                        student_class_id=enrollment.id
+                    )
                 )
             )
             .scalars()
@@ -784,16 +881,32 @@ class StudentReportService:
                     exam = None
             subj_info = {}
             if exam:
-                subj_info = await _resolve_subject_for_class_subject(exam.class_subject_id)
+                subj_info = await _resolve_subject_for_class_subject(
+                    exam.class_subject_id
+                )
             obtained = er.obtained_marks or 0
-            total = (getattr(exam, 'total_marks', None) or 0) if exam else 0
-            pct = er.percentage if er.percentage is not None else (round(obtained / total * 100, 1) if total > 0 else 0)
+            total = (
+                (getattr(exam, 'total_marks', None) or 0) if exam else 0
+            )
+            pct = (
+                er.percentage
+                if er.percentage is not None
+                else (
+                    round(obtained / total * 100, 1)
+                    if total > 0
+                    else 0
+                )
+            )
             exam_results.append({
                 "exam_id": er.exam_id,
                 "subject_id": subj_info.get("subject_id"),
                 "exam_name": getattr(exam, 'exam_name', None) or "\u2014",
                 "exam_type": getattr(exam, 'exam_type', None) or "\u2014",
-                "exam_date": str(getattr(exam, 'exam_date', None)) if getattr(exam, 'exam_date', None) else None,
+                "exam_date": (
+                    str(getattr(exam, 'exam_date', None))
+                    if getattr(exam, 'exam_date', None)
+                    else None
+                ),
                 "subject_name": subj_info.get("subject_name", "\u2014"),
                 "obtained_marks": obtained,
                 "total_marks": total,
@@ -806,7 +919,9 @@ class StudentReportService:
         assignment_results_raw = list(
             (
                 await db.execute(
-                    select(AssignmentResult).filter_by(student_class_id=enrollment.id)
+                    select(AssignmentResult).filter_by(
+                        student_class_id=enrollment.id
+                    )
                 )
             )
             .scalars()
@@ -822,15 +937,33 @@ class StudentReportService:
                     assignment = None
             subj_info = {}
             if assignment:
-                subj_info = await _resolve_subject_for_class_subject(assignment.class_subject_id)
+                subj_info = await _resolve_subject_for_class_subject(
+                    assignment.class_subject_id
+                )
             obtained = ar.obtained_marks or 0
-            total = (getattr(assignment, 'total_marks', None) or 0) if assignment else 0
-            pct = ar.percentage if ar.percentage is not None else (round(obtained / total * 100, 1) if total > 0 else 0)
+            total = (
+                (getattr(assignment, 'total_marks', None) or 0)
+                if assignment
+                else 0
+            )
+            pct = (
+                ar.percentage
+                if ar.percentage is not None
+                else (
+                    round(obtained / total * 100, 1)
+                    if total > 0
+                    else 0
+                )
+            )
             assignment_results.append({
                 "assignment_id": ar.assignment_id,
                 "subject_id": subj_info.get("subject_id"),
                 "title": getattr(assignment, 'title', None) or "\u2014",
-                "due_date": str(getattr(assignment, 'due_date', None)) if getattr(assignment, 'due_date', None) else None,
+                "due_date": (
+                    str(getattr(assignment, 'due_date', None))
+                    if getattr(assignment, 'due_date', None)
+                    else None
+                ),
                 "subject_name": subj_info.get("subject_name", "\u2014"),
                 "obtained_marks": obtained,
                 "total_marks": total,
@@ -839,24 +972,39 @@ class StudentReportService:
                 "is_checked": ar.is_checked,
             })
 
-        # Subject-wise aggregation — match by subject_id (not name)
+        # Subject-wise aggregation -- match by subject_id (not name)
         subject_stats = {}
         for subj_id_key, subj_info in subject_id_map.items():
             sname = subj_info["subject_name"]
-            sub_exams = [e for e in exam_results if e.get("subject_id") == subj_id_key]
-            sub_assignments = [a for a in assignment_results if a.get("subject_id") == subj_id_key]
+            sub_exams = [
+                e for e in exam_results
+                if e.get("subject_id") == subj_id_key
+            ]
+            sub_assignments = [
+                a for a in assignment_results
+                if a.get("subject_id") == subj_id_key
+            ]
 
             avg_exam = 0
             if sub_exams:
                 avg_exam = round(
-                    sum((e["percentage"] or 0) for e in sub_exams) / len(sub_exams), 1
+                    sum((e["percentage"] or 0) for e in sub_exams)
+                    / len(sub_exams),
+                    1,
                 )
 
-            checked_assignments = [a for a in sub_assignments if a.get("is_checked")]
+            checked_assignments = [
+                a for a in sub_assignments if a.get("is_checked")
+            ]
             avg_assignment = 0
             if checked_assignments:
                 avg_assignment = round(
-                    sum((a["percentage"] or 0) for a in checked_assignments) / len(checked_assignments), 1
+                    sum(
+                        (a["percentage"] or 0)
+                        for a in checked_assignments
+                    )
+                    / len(checked_assignments),
+                    1,
                 )
 
             subject_stats[subj_id_key] = {
@@ -873,7 +1021,9 @@ class StudentReportService:
         fees = list(
             (
                 await db.execute(
-                    select(Fee).filter_by(student_class_id=enrollment.id)
+                    select(Fee).filter_by(
+                        student_class_id=enrollment.id
+                    )
                 )
             )
             .scalars()

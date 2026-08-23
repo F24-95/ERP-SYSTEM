@@ -149,7 +149,12 @@ class ZoomReportService:
         """Class-wise Zoom report: list all meetings for a classroom with
         per-student detail (join/leave/duration/interactions/speaking time)."""
         from src.domain.academics.models import ClassRoom
-        from src.domain.zoom.models import ProcessedMeeting, ProcessedParticipant, RawMeeting, RawParticipant
+        from src.domain.zoom.models import (
+            ProcessedMeeting,
+            ProcessedParticipant,
+            RawMeeting,
+            RawParticipant,
+        )
 
         classroom = await db.get(ClassRoom, classroom_id)
         if not classroom:
@@ -196,7 +201,9 @@ class ZoomReportService:
             if recording_file:
                 interactions_raw = list(
                     (await db.execute(
-                        select(ZoomStudentInteraction).filter_by(recording_file_id=recording_file.id)
+                        select(ZoomStudentInteraction).filter_by(
+                            recording_file_id=recording_file.id,
+                        )
                     )).scalars().all()
                 )
             total_interactions += len(interactions_raw)
@@ -212,14 +219,18 @@ class ZoomReportService:
                         "times": [],
                     }
                 interaction_by_speaker[name]["count"] += 1
-                interaction_by_speaker[name]["total_seconds"] += i.interaction_duration or 0
+                interaction_by_speaker[name]["total_seconds"] += (
+                    i.interaction_duration or 0
+                )
                 interaction_by_speaker[name]["times"].append(i.interaction_time)
 
             # Build per-student list with joined interaction data
             per_student = []
             for p in participants_raw:
                 name = p.name
-                stats = interaction_by_speaker.get(name, {"count": 0, "total_seconds": 0, "times": []})
+                stats = interaction_by_speaker.get(
+                    name, {"count": 0, "total_seconds": 0, "times": []}
+                )
                 per_student.append({
                     "name": name,
                     "email": p.user_email,
@@ -252,16 +263,26 @@ class ZoomReportService:
             total_duration += duration_min
 
             # Compute summary stats for this meeting
-            speakers_with_interactions = sum(1 for s in per_student if s["interaction_count"] > 0)
+            speakers_with_interactions = sum(
+                1 for s in per_student if s["interaction_count"] > 0
+            )
             avg_attentiveness = 0
-            att_scores = [int(p.get("attentiveness_score") or 0) for p in per_student if p.get("attentiveness_score")]
+            att_scores = [
+                int(p.get("attentiveness_score") or 0)
+                for p in per_student
+                if p.get("attentiveness_score")
+            ]
             if att_scores:
                 avg_attentiveness = round(sum(att_scores) / len(att_scores), 1)
 
             entry = {
                 "meeting_uuid": meeting.uuid if meeting else None,
                 "topic": (meeting.topic if meeting else None) or zf.file_initial,
-                "start_time": meeting.start_time.isoformat() if meeting and meeting.start_time else None,
+                "start_time": (
+                    meeting.start_time.isoformat()
+                    if meeting and meeting.start_time
+                    else None
+                ),
                 "duration_minutes": duration_min,
                 "date": zf.date,
                 "time": zf.time,
@@ -344,9 +365,13 @@ class ZoomReportService:
         if not meetings_data:
             rm_query = select(RawMeeting)
             if start_date:
-                rm_query = rm_query.filter(RawMeeting.start_time >= datetime.combine(start_date, datetime.min.time()))
+                rm_query = rm_query.filter(
+                    RawMeeting.start_time >= datetime.combine(start_date, datetime.min.time()),
+                )
             if end_date:
-                rm_query = rm_query.filter(RawMeeting.start_time <= datetime.combine(end_date, datetime.max.time()))
+                rm_query = rm_query.filter(
+                    RawMeeting.start_time <= datetime.combine(end_date, datetime.max.time()),
+                )
             rm_query = rm_query.order_by(RawMeeting.start_time.desc())
             raw_meetings = list((await db.execute(rm_query)).scalars().all())
 
@@ -402,8 +427,16 @@ class ZoomReportService:
                 "total_duration_minutes": total_duration,
                 "total_participants": total_participants,
                 "total_interactions": total_interactions,
-                "avg_duration_minutes": round(total_duration / session_count, 1) if session_count else 0,
-                "avg_participants": round(total_participants / session_count, 1) if session_count else 0,
+                "avg_duration_minutes": (
+                    round(total_duration / session_count, 1)
+                    if session_count
+                    else 0
+                ),
+                "avg_participants": (
+                    round(total_participants / session_count, 1)
+                    if session_count
+                    else 0
+                ),
             },
             "meetings": meetings_data,
         }
@@ -540,13 +573,24 @@ class ZoomReportService:
                                 break
                     if classroom_name:
                         break
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug(
+                        f"Failed to lookup classroom for recording: {exc}",
+                        exc_info=True,
+                    )
 
         # Compute summary
-        speakers_with_interactions = sum(1 for p in per_student if p["interaction_count"] > 0)
-        att_scores = [int(p.get("attentiveness_score") or 0) for p in per_student if p.get("attentiveness_score")]
-        avg_attentiveness = round(sum(att_scores) / len(att_scores), 1) if att_scores else 0
+        speakers_with_interactions = sum(
+            1 for p in per_student if p["interaction_count"] > 0
+        )
+        att_scores = [
+            int(p.get("attentiveness_score") or 0)
+            for p in per_student
+            if p.get("attentiveness_score")
+        ]
+        avg_attentiveness = (
+            round(sum(att_scores) / len(att_scores), 1) if att_scores else 0
+        )
 
         return {
             "meeting": {
@@ -596,9 +640,13 @@ class ZoomReportService:
         classroom and date range."""
         query = select(ZoomMeeting)
         if start_date:
-            query = query.filter(ZoomMeeting.start_time >= datetime.combine(start_date, datetime.min.time()))
+            query = query.filter(
+                ZoomMeeting.start_time >= datetime.combine(start_date, datetime.min.time()),
+            )
         if end_date:
-            query = query.filter(ZoomMeeting.start_time <= datetime.combine(end_date, datetime.max.time()))
+            query = query.filter(
+                ZoomMeeting.start_time <= datetime.combine(end_date, datetime.max.time()),
+            )
         query = query.order_by(ZoomMeeting.start_time.desc())
         meetings = list((await db.execute(query)).scalars().all())
 

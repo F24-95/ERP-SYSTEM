@@ -53,14 +53,17 @@ logger = get_logger(__name__)
 
 
 class EnrollmentService:
-    """Handles teacher assignment and student enrollment with business-rule validation."""
+    """Handles teacher assignment and student enrollment
+    with business-rule validation.
+    """
 
     @staticmethod
     async def assign_teacher(
         db: AsyncSession,
         data: TeacherSubjectCreate,
     ) -> TeacherSubject:
-        # FIX: Old project had no uniqueness check before INSERT, causing raw IntegrityError
+        # FIX: Old project had no uniqueness check before INSERT,
+        # causing raw IntegrityError
         query = select(TeacherSubject).filter(
             and_(
                 TeacherSubject.academic_sessions_id == data.academic_sessions_id,
@@ -70,11 +73,14 @@ class EnrollmentService:
         )
         if (await db.execute(query)).scalars().first():
             raise BusinessLogicException(
-                "Teacher already assigned to this subject in the given class and session.",
+                "Teacher already assigned to this subject "
+                "in the given class and session.",
             )
         result = await teacher_subject_crud.create(db, data.model_dump())
         logger.info(
-            f"Assigned teacher={data.teacher_id} to subject={data.subject_id} class={data.classroom_id}",
+            f"Assigned teacher={data.teacher_id} "
+            f"to subject={data.subject_id} "
+            f"class={data.classroom_id}",
         )
         return result
 
@@ -104,11 +110,14 @@ class EnrollmentService:
         )
         if (await db.execute(q2)).scalars().first():
             raise BusinessLogicException(
-                f"Roll number {data.roll_number} is already taken in this class.",
+                f"Roll number {data.roll_number} is already taken "
+                f"in this class.",
             )
         result = await student_class_crud.create(db, data.model_dump())
         logger.info(
-            f"Enrolled student={data.student_id} class={data.classroom_id} roll={data.roll_number}",
+            f"Enrolled student={data.student_id} "
+            f"class={data.classroom_id} "
+            f"roll={data.roll_number}",
         )
         return result
 
@@ -119,12 +128,16 @@ class EnrollmentService:
     # ------------------------------------------------------------------
 
     @staticmethod
-    async def list_teacher_assignments(db: AsyncSession) -> list[TeacherSubject]:
+    async def list_teacher_assignments(
+        db: AsyncSession,
+    ) -> list[TeacherSubject]:
         items, _total = await teacher_subject_crud.get_all(db)
         return items
 
     @staticmethod
-    async def list_student_enrollments(db: AsyncSession) -> list[StudentClass]:
+    async def list_student_enrollments(
+        db: AsyncSession,
+    ) -> list[StudentClass]:
         items, _total = await student_class_crud.get_all(db)
         return items
 
@@ -150,9 +163,14 @@ class EnrollmentService:
         return await teacher_subject_crud.update(db, assignment_id, data)
 
     @staticmethod
-    async def unassign_teacher(db: AsyncSession, assignment_id: int) -> None:
+    async def unassign_teacher(
+        db: AsyncSession,
+        assignment_id: int,
+    ) -> None:
         await teacher_subject_crud.get_or_raise(db, assignment_id)
-        await teacher_subject_crud.update(db, assignment_id, {"is_active": False})
+        await teacher_subject_crud.update(
+            db, assignment_id, {"is_active": False}
+        )
         logger.info(f"Teacher assignment deactivated: id={assignment_id}")
 
     @staticmethod
@@ -175,13 +193,18 @@ class EnrollmentService:
         return await student_class_crud.update(db, enrollment_id, data)
 
     @staticmethod
-    async def unenroll_student(db: AsyncSession, enrollment_id: int) -> None:
+    async def unenroll_student(
+        db: AsyncSession,
+        enrollment_id: int,
+    ) -> None:
         """Deactivates rather than hard-deletes: fees, exam results, and
         attendance can all reference a student's classroom enrollment
         indirectly, so removing the row outright risks orphaning history.
         """
         await student_class_crud.get_or_raise(db, enrollment_id)
-        await student_class_crud.update(db, enrollment_id, {"is_active": False})
+        await student_class_crud.update(
+            db, enrollment_id, {"is_active": False}
+        )
         logger.info(f"Student enrollment deactivated: id={enrollment_id}")
 
     @staticmethod
@@ -215,7 +238,8 @@ class EnrollmentService:
         )
         if existing_target:
             raise BusinessLogicException(
-                "Student is already enrolled in the target academic session.",
+                "Student is already enrolled in the target "
+                "academic session.",
             )
 
         history = await promotion_crud.create(
@@ -260,7 +284,9 @@ class EnrollmentService:
 
         await db.flush()
         logger.info(
-            f"Promoted student={student_id} from session={from_session_id} to session={to_session_id} "
+            f"Promoted student={student_id} "
+            f"from session={from_session_id} "
+            f"to session={to_session_id} "
             f"(new enrollment id={new_enrollment.id})",
         )
         return history
@@ -277,7 +303,9 @@ class EnrollmentService:
         result = await db.execute(
             select(StudentPromotionHistory)
             .filter_by(student_id=student_id)
-            .order_by(StudentPromotionHistory.promotion_date.desc()),
+            .order_by(
+                StudentPromotionHistory.promotion_date.desc()
+            ),
         )
         return list(result.scalars().all())
 
@@ -286,7 +314,7 @@ class DailyClassService:
     """Daily class CRUD + attendance marking.
 
     Ported verbatim from `app/routers/daily_class_routers.py` (the active,
-    non-commented-out half of that file) — the legacy `attendance_service.py`
+    non-commented-out half of that file) -- the legacy `attendance_service.py`
     is a 0-byte file and `AcademicService`'s daily-class/attendance methods
     are dead code (grepped: never called by any router), so exactly like
     assignments/exams/notices, the router itself is the source of truth
@@ -298,7 +326,9 @@ class DailyClassService:
         db: AsyncSession,
         user_id: int,
     ) -> TeacherProfile:
-        teacher = await db.scalar(select(TeacherProfile).filter_by(user_id=user_id))
+        teacher = await db.scalar(
+            select(TeacherProfile).filter_by(user_id=user_id)
+        )
         if not teacher:
             raise ResourceNotFoundException("Teacher profile not found")
         return teacher
@@ -310,8 +340,9 @@ class DailyClassService:
         current_user: User,
     ) -> DailyClass:
         # Legacy verifies the teacher owns the TeacherSubject being scheduled.
-        # Note: legacy `require_role(UserRole.TEACHER)` — admins cannot create
-        # a daily class via this endpoint (unlike some other domains). Preserved.
+        # Note: legacy `require_role(UserRole.TEACHER)` -- admins cannot create
+        # a daily class via this endpoint (unlike some other domains).
+        # Preserved.
         teacher_subject = await db.scalar(
             select(TeacherSubject).filter_by(
                 id=data.teacher_subject_id,
@@ -319,7 +350,9 @@ class DailyClassService:
             ),
         )
         if not teacher_subject:
-            raise AuthorizationException("You are not assigned to this class")
+            raise AuthorizationException(
+                "You are not assigned to this class"
+            )
 
         existing = await db.scalar(
             select(DailyClass).filter_by(
@@ -328,11 +361,14 @@ class DailyClassService:
             ),
         )
         if existing:
-            raise BusinessLogicException("Class already exists for this date")
+            raise BusinessLogicException(
+                "Class already exists for this date"
+            )
 
         new_class = await daily_class_crud.create(db, data.model_dump())
         logger.info(
-            f"Daily class created: {new_class.daily_class_id} by user={current_user.id}",
+            f"Daily class created: {new_class.daily_class_id} "
+            f"by user={current_user.id}",
         )
         return new_class
 
@@ -346,32 +382,43 @@ class DailyClassService:
     ) -> list[DailyClass]:
         query = select(DailyClass)
         if classroom_id:
-            query = query.filter(DailyClass.classroom_id == classroom_id)
+            query = query.filter(
+                DailyClass.classroom_id == classroom_id
+            )
         if class_date:
             query = query.filter(DailyClass.class_date == class_date)
         if lecture_status:
-            query = query.filter(DailyClass.lecture_status == lecture_status)
+            query = query.filter(
+                DailyClass.lecture_status == lecture_status
+            )
 
         # Legacy scopes the list to the teacher's own classes when the
         # caller is a teacher (admins/others see everything the other
         # filters allow).
         if current_user.role == UserRole.TEACHER:
             teacher = await db.scalar(
-                select(TeacherProfile).filter_by(user_id=current_user.id),
+                select(TeacherProfile).filter_by(
+                    user_id=current_user.id
+                ),
             )
             if teacher:
                 teacher_subject_ids = select(TeacherSubject.id).filter(
                     TeacherSubject.teacher_id == current_user.id,
                 )
                 query = query.filter(
-                    DailyClass.teacher_subject_id.in_(teacher_subject_ids),
+                    DailyClass.teacher_subject_id.in_(
+                        teacher_subject_ids
+                    ),
                 )
 
         query = query.order_by(DailyClass.class_date.desc())
         return list((await db.execute(query)).scalars().all())
 
     @staticmethod
-    async def get_daily_class(db: AsyncSession, daily_class_id: int) -> DailyClass:
+    async def get_daily_class(
+        db: AsyncSession,
+        daily_class_id: int,
+    ) -> DailyClass:
         daily_class = await daily_class_crud.get(db, daily_class_id)
         if not daily_class:
             raise ResourceNotFoundException("Class not found")
@@ -384,16 +431,20 @@ class DailyClassService:
         data: DailyClassUpdate,
         current_user: User,
     ) -> DailyClass:
-        daily_class = await DailyClassService.get_daily_class(db, daily_class_id)
+        daily_class = await DailyClassService.get_daily_class(
+            db, daily_class_id
+        )
 
         teacher = await db.scalar(
             select(TeacherProfile).filter_by(user_id=current_user.id),
         )
-        # NOTE: legacy compares `daily_class.teacher_subject_id != teacher.teacher_id`
-        # (a TeacherSubject row id, not the teacher's own id) — this is the exact
-        # ownership check as written in `update_daily_class`/`delete_daily_class`/
-        # `mark_attendance` in the legacy router. In the new schema TeacherSubject
-        # is keyed by `teacher_id == users.id`, so the equivalent check is against
+        # NOTE: legacy compares
+        # `daily_class.teacher_subject_id != teacher.teacher_id`
+        # (a TeacherSubject row id, not the teacher's own id) -- this is the
+        # exact ownership check as written in `update_daily_class`/
+        # `delete_daily_class`/`mark_attendance` in the legacy router.
+        # In the new schema TeacherSubject is keyed by
+        # `teacher_id == users.id`, so the equivalent check is against
         # a TeacherSubject the caller actually owns, reproduced below.
         if teacher:
             owns = await db.scalar(
@@ -403,10 +454,14 @@ class DailyClassService:
                 ),
             )
             if not owns:
-                raise AuthorizationException("You can only update your own classes")
+                raise AuthorizationException(
+                    "You can only update your own classes"
+                )
 
         update_data = data.model_dump(exclude_unset=True)
-        return await daily_class_crud.update(db, daily_class_id, update_data)
+        return await daily_class_crud.update(
+            db, daily_class_id, update_data
+        )
 
     @staticmethod
     async def delete_daily_class(
@@ -414,7 +469,9 @@ class DailyClassService:
         daily_class_id: int,
         current_user: User,
     ) -> None:
-        daily_class = await DailyClassService.get_daily_class(db, daily_class_id)
+        daily_class = await DailyClassService.get_daily_class(
+            db, daily_class_id
+        )
 
         teacher = await db.scalar(
             select(TeacherProfile).filter_by(user_id=current_user.id),
@@ -427,9 +484,11 @@ class DailyClassService:
                 ),
             )
             if not owns:
-                raise AuthorizationException("You can only delete your own classes")
+                raise AuthorizationException(
+                    "You can only delete your own classes"
+                )
 
-        # Remove attendance rows first — they hard-reference the class via a
+        # Remove attendance rows first -- they hard-reference the class via a
         # foreign key, so deleting the class alone raises an integrity error.
         await db.execute(
             delete(DailyClassStudent).where(
@@ -452,7 +511,9 @@ class DailyClassService:
         class's classroom, and does NOT touch the `StudentAttendance`
         aggregate table (see note on StudentAttendance below).
         """
-        daily_class = await DailyClassService.get_daily_class(db, daily_class_id)
+        daily_class = await DailyClassService.get_daily_class(
+            db, daily_class_id
+        )
 
         teacher = await db.scalar(
             select(TeacherProfile).filter_by(user_id=current_user.id),
@@ -487,7 +548,9 @@ class DailyClassService:
                 ),
             )
             if existing:
-                existing.attendance_status = item.get("attendance_status", "Present")
+                existing.attendance_status = item.get(
+                    "attendance_status", "Present"
+                )
                 existing.is_late = item.get("is_late", False)
                 existing.late_minutes = item.get("late_minutes", 0)
                 existing.remarks = item.get("remarks")
@@ -498,7 +561,9 @@ class DailyClassService:
                 new_record = DailyClassStudent(
                     daily_class_id=daily_class_id,
                     student_class_id=item["student_class_id"],
-                    attendance_status=item.get("attendance_status", "Present"),
+                    attendance_status=item.get(
+                        "attendance_status", "Present"
+                    ),
                     is_late=item.get("is_late", False),
                     late_minutes=item.get("late_minutes", 0),
                     remarks=item.get("remarks"),
@@ -509,7 +574,8 @@ class DailyClassService:
 
         await db.flush()
         logger.info(
-            f"Attendance marked for daily_class={daily_class_id} count={len(marked_records)}",
+            f"Attendance marked for daily_class={daily_class_id} "
+            f"count={len(marked_records)}",
         )
         return marked_records
 
@@ -528,18 +594,26 @@ class DailyClassService:
         only sees their own entry.
         """
         await DailyClassService.get_daily_class(db, daily_class_id)
-        query = select(DailyClassStudent).filter_by(daily_class_id=daily_class_id)
+        query = select(DailyClassStudent).filter_by(
+            daily_class_id=daily_class_id
+        )
 
         if current_user.role == UserRole.STUDENT:
             student_class_ids = (
                 await db.scalars(
-                    select(StudentClass.id).filter_by(student_id=current_user.id),
+                    select(StudentClass.id).filter_by(
+                        student_id=current_user.id
+                    ),
                 )
             ).all()
             query = query.filter(
-                DailyClassStudent.student_class_id.in_(student_class_ids),
+                DailyClassStudent.student_class_id.in_(
+                    student_class_ids
+                ),
             )
-        elif current_user.role not in (UserRole.ADMIN, UserRole.TEACHER):
+        elif current_user.role not in (
+            UserRole.ADMIN, UserRole.TEACHER
+        ):
             raise AuthorizationException("Permission denied")
 
         result = await db.execute(query)
@@ -570,7 +644,9 @@ class DailyClassService:
                 raise AuthorizationException(
                     "You can only view your own attendance record",
                 )
-        elif current_user.role not in (UserRole.ADMIN, UserRole.TEACHER):
+        elif current_user.role not in (
+            UserRole.ADMIN, UserRole.TEACHER
+        ):
             raise AuthorizationException("Permission denied")
         return record
 
@@ -584,7 +660,7 @@ class DailyClassService:
         """Correcting a single student's attendance was already possible by
         re-POSTing that one row through the bulk mark_attendance upsert,
         but there was no dedicated single-record endpoint for it, and no
-        way to delete a record at all. Added for completeness/discoverability.
+        way to delete a record at all. Added for completeness.
         """
         record = await daily_student_crud.get(db, record_id)
         if not record:
@@ -604,7 +680,8 @@ class DailyClassService:
             )
             if not owns:
                 raise AuthorizationException(
-                    "You can only correct attendance for your own classes",
+                    "You can only correct attendance for your "
+                    "own classes",
                 )
         elif current_user.role != UserRole.ADMIN:
             raise AuthorizationException("Permission denied")
@@ -638,13 +715,15 @@ class DailyClassService:
             )
             if not owns:
                 raise AuthorizationException(
-                    "You can only delete attendance for your own classes",
+                    "You can only delete attendance for your "
+                    "own classes",
                 )
         elif current_user.role != UserRole.ADMIN:
             raise AuthorizationException("Permission denied")
         await daily_student_crud.delete(db, record_id)
         logger.info(
-            f"Attendance record deleted: id={record_id} by user={current_user.id}",
+            f"Attendance record deleted: id={record_id} "
+            f"by user={current_user.id}",
         )
 
     @staticmethod
@@ -672,10 +751,14 @@ class DailyClassService:
         total = sum(counts.values())
         present = counts.get("Present", 0)
         absent = counts.get("Absent", 0)
-        percentage = round((present / total) * 100, 2) if total else 0.0
+        percentage = (
+            round((present / total) * 100, 2) if total else 0.0
+        )
 
         existing = await db.scalar(
-            select(StudentAttendance).filter_by(student_class_id=student_class_id),
+            select(StudentAttendance).filter_by(
+                student_class_id=student_class_id
+            ),
         )
         payload = {
             "student_class_id": student_class_id,
@@ -685,7 +768,9 @@ class DailyClassService:
             "attendance_percentage": percentage,
         }
         if existing:
-            return await attendance_crud.update(db, existing.id, payload)
+            return await attendance_crud.update(
+                db, existing.id, payload
+            )
         return await attendance_crud.create(db, payload)
 
     @staticmethod
@@ -706,10 +791,14 @@ class DailyClassService:
                 raise AuthorizationException(
                     "You can only view your own attendance summary",
                 )
-        elif current_user.role not in (UserRole.ADMIN, UserRole.TEACHER):
+        elif current_user.role not in (
+            UserRole.ADMIN, UserRole.TEACHER
+        ):
             raise AuthorizationException("Permission denied")
         return await db.scalar(
-            select(StudentAttendance).filter_by(student_class_id=student_class_id),
+            select(StudentAttendance).filter_by(
+                student_class_id=student_class_id
+            ),
         )
 
     @staticmethod
@@ -732,11 +821,18 @@ class DailyClassService:
             "start_date": start_date,
             "end_date": end_date,
             "total_classes": len(classes),
-            "completed": len([c for c in classes if c.lecture_status == "Completed"]),
-            "cancelled": len([c for c in classes if c.lecture_status == "Cancelled"]),
+            "completed": len([
+                c for c in classes
+                if c.lecture_status == "Completed"
+            ]),
+            "cancelled": len([
+                c for c in classes
+                if c.lecture_status == "Cancelled"
+            ]),
             # Legacy leaves this hardcoded with a "Calculate from attendance
-            # records" TODO comment in `daily_class_routers.py::get_class_summary`
-            # — it was never wired up in production. Preserved as-is, not
+            # records" TODO comment in
+            # `daily_class_routers.py::get_class_summary`
+            # -- it was never wired up in production. Preserved as-is, not
             # silently implemented, since real values here would be a new
             # behavior change, not a parity fix.
             "attendance_average": 0,
@@ -747,7 +843,7 @@ class DailyClassService:
 # (`daily_class_routers.py::mark_attendance`, ported above) never writes to
 # the `student_attendance` aggregate table. Only the dead-code
 # `AcademicService.mark_attendance` / `StudentAttendanceRepository` (never
-# called by any router — confirmed via grep) maintain it. So in real legacy
+# called by any router -- confirmed via grep) maintain it. So in real legacy
 # usage this table is effectively always empty. We preserve that gap rather
 # than silently wiring the aggregate update into the live endpoint, since
 # that would be new behavior, not migration parity. Flagging here for
@@ -759,23 +855,31 @@ class TimetableService:
     student- and teacher-facing computed timetable views.
 
     Ported from legacy `app/services/timetable_service.py` (admin list/
-    update/delete + student/teacher views) and `app/services/academic_service.py`
-    (weekday/timeslot/timetable/availability create+read, the only parts of
-    that service that ARE referenced by a router — see `timetable_routers.py`).
+    update/delete + student/teacher views) and
+    `app/services/academic_service.py` (weekday/timeslot/timetable/
+    availability create+read, the only parts of that service that ARE
+    referenced by a router -- see `timetable_routers.py`).
     """
 
     # -------------------------
     # Week day / time slot (thin passthroughs, no business logic in legacy)
     # -------------------------
     @staticmethod
-    async def get_all_weekdays(db: AsyncSession) -> list[WeekDay]:
+    async def get_all_weekdays(
+        db: AsyncSession,
+    ) -> list[WeekDay]:
         result = await db.execute(
-            select(WeekDay).filter(WeekDay.is_active).order_by(WeekDay.display_order),
+            select(WeekDay)
+            .filter(WeekDay.is_active)
+            .order_by(WeekDay.display_order),
         )
         return list(result.scalars().all())
 
     @staticmethod
-    async def create_weekday(db: AsyncSession, data: dict[str, Any]) -> WeekDay:
+    async def create_weekday(
+        db: AsyncSession,
+        data: dict[str, Any],
+    ) -> WeekDay:
         return await weekday_crud.create(db, data)
 
     @staticmethod
@@ -792,12 +896,19 @@ class TimetableService:
         return await weekday_crud.update(db, weekday_id, data)
 
     @staticmethod
-    async def deactivate_weekday(db: AsyncSession, weekday_id: int) -> None:
+    async def deactivate_weekday(
+        db: AsyncSession,
+        weekday_id: int,
+    ) -> None:
         await weekday_crud.get_or_raise(db, weekday_id)
-        await weekday_crud.update(db, weekday_id, {"is_active": False})
+        await weekday_crud.update(
+            db, weekday_id, {"is_active": False}
+        )
 
     @staticmethod
-    async def get_all_timeslots(db: AsyncSession) -> list[TimeSlot]:
+    async def get_all_timeslots(
+        db: AsyncSession,
+    ) -> list[TimeSlot]:
         result = await db.execute(
             select(TimeSlot)
             .filter(TimeSlot.is_active)
@@ -806,7 +917,10 @@ class TimetableService:
         return list(result.scalars().all())
 
     @staticmethod
-    async def create_timeslot(db: AsyncSession, data: dict[str, Any]) -> TimeSlot:
+    async def create_timeslot(
+        db: AsyncSession,
+        data: dict[str, Any],
+    ) -> TimeSlot:
         return await timeslot_crud.create(db, data)
 
     @staticmethod
@@ -819,9 +933,14 @@ class TimetableService:
         return await timeslot_crud.update(db, timeslot_id, data)
 
     @staticmethod
-    async def deactivate_timeslot(db: AsyncSession, timeslot_id: int) -> None:
+    async def deactivate_timeslot(
+        db: AsyncSession,
+        timeslot_id: int,
+    ) -> None:
         await timeslot_crud.get_or_raise(db, timeslot_id)
-        await timeslot_crud.update(db, timeslot_id, {"is_active": False})
+        await timeslot_crud.update(
+            db, timeslot_id, {"is_active": False}
+        )
 
     # -------------------------
     # Timetable (admin)
@@ -856,17 +975,26 @@ class TimetableService:
         class_subject_id: int | None = None,
         week_day_id: int | None = None,
     ) -> list[ClassTimeTable]:
-        query = select(ClassTimeTable).filter(ClassTimeTable.is_active)
+        query = select(ClassTimeTable).filter(
+            ClassTimeTable.is_active
+        )
         if classroom_id is not None:
-            query = query.filter(ClassTimeTable.classroom_id == classroom_id)
+            query = query.filter(
+                ClassTimeTable.classroom_id == classroom_id
+            )
         if teacher_subject_id is not None:
             query = query.filter(
-                ClassTimeTable.teacher_subject_id == teacher_subject_id,
+                ClassTimeTable.teacher_subject_id
+                == teacher_subject_id,
             )
         if class_subject_id is not None:
-            query = query.filter(ClassTimeTable.class_subject_id == class_subject_id)
+            query = query.filter(
+                ClassTimeTable.class_subject_id == class_subject_id
+            )
         if week_day_id is not None:
-            query = query.filter(ClassTimeTable.week_day_id == week_day_id)
+            query = query.filter(
+                ClassTimeTable.week_day_id == week_day_id
+            )
 
         query = query.order_by(
             ClassTimeTable.academic_sessions_id.asc(),
@@ -874,7 +1002,9 @@ class TimetableService:
             ClassTimeTable.week_day_id.asc(),
             ClassTimeTable.time_slot_id.asc(),
         )
-        return list((await db.execute(query)).scalars().all())
+        return list(
+            (await db.execute(query)).scalars().all()
+        )
 
     @staticmethod
     async def admin_update_timetable(
@@ -897,27 +1027,43 @@ class TimetableService:
             "time_slot_id",
             "is_active",
         }
-        filtered = {k: v for k, v in update_fields.items() if k in allowed}
-        return await timetable_crud.update(db, timetable_id, filtered)
+        filtered = {
+            k: v for k, v in update_fields.items() if k in allowed
+        }
+        return await timetable_crud.update(
+            db, timetable_id, filtered
+        )
 
     @staticmethod
-    async def admin_delete_timetable(db: AsyncSession, timetable_id: int) -> bool:
+    async def admin_delete_timetable(
+        db: AsyncSession,
+        timetable_id: int,
+    ) -> bool:
         entry = await timetable_crud.get(db, timetable_id)
         if not entry:
             return False
-        # Legacy soft-deletes (sets is_active = False), same as this model's
-        # only "deletion" mechanism (ClassTimeTable has no is_deleted column).
-        await timetable_crud.update(db, timetable_id, {"is_active": False})
+        # Legacy soft-deletes (sets is_active = False), same as this
+        # model's only "deletion" mechanism (ClassTimeTable has no
+        # is_deleted column).
+        await timetable_crud.update(
+            db, timetable_id, {"is_active": False}
+        )
         return True
 
     # -------------------------
     # Student timetable view
     # -------------------------
     @staticmethod
-    async def _get_current_academic_session_id(db: AsyncSession) -> int:
-        session = await db.scalar(select(AcademicSession).filter_by(is_current=True))
+    async def _get_current_academic_session_id(
+        db: AsyncSession,
+    ) -> int:
+        session = await db.scalar(
+            select(AcademicSession).filter_by(is_current=True)
+        )
         if not session:
-            raise ResourceNotFoundException("Current academic session not found")
+            raise ResourceNotFoundException(
+                "Current academic session not found"
+            )
         return session.id
 
     @staticmethod
@@ -925,18 +1071,25 @@ class TimetableService:
         db: AsyncSession,
         student_user_id: int,
     ) -> list[dict[str, Any]]:
-        current_session_id = await TimetableService._get_current_academic_session_id(db)
+        current_session_id = (
+            await TimetableService._get_current_academic_session_id(db)
+        )
 
         student = await db.scalar(
-            select(StudentProfile).filter_by(user_id=student_user_id),
+            select(StudentProfile).filter_by(
+                user_id=student_user_id
+            ),
         )
         if not student:
-            raise ResourceNotFoundException("Student profile not found")
+            raise ResourceNotFoundException(
+                "Student profile not found"
+            )
 
         result = await db.execute(
             select(StudentClass).filter(
                 StudentClass.student_id == student_user_id,
-                StudentClass.academic_sessions_id == current_session_id,
+                StudentClass.academic_sessions_id
+                == current_session_id,
                 StudentClass.status == "ACTIVE",
             ),
         )
@@ -945,24 +1098,37 @@ class TimetableService:
         if not student_classes:
             fallback = await db.scalar(
                 select(StudentClass)
-                .filter_by(student_id=student_user_id, status="ACTIVE")
-                .order_by(StudentClass.academic_sessions_id.desc()),
+                .filter_by(
+                    student_id=student_user_id,
+                    status="ACTIVE",
+                )
+                .order_by(
+                    StudentClass.academic_sessions_id.desc()
+                ),
             )
             if fallback:
-                current_session_id = fallback.academic_sessions_id
+                current_session_id = (
+                    fallback.academic_sessions_id
+                )
                 result = await db.execute(
                     select(StudentClass).filter(
-                        StudentClass.student_id == student_user_id,
-                        StudentClass.academic_sessions_id == current_session_id,
+                        StudentClass.student_id
+                        == student_user_id,
+                        StudentClass.academic_sessions_id
+                        == current_session_id,
                         StudentClass.status == "ACTIVE",
                     ),
                 )
-                student_classes = list(result.scalars().all())
+                student_classes = list(
+                    result.scalars().all()
+                )
 
         if not student_classes:
             return []
 
-        classroom_ids = [sc.classroom_id for sc in student_classes]
+        classroom_ids = [
+            sc.classroom_id for sc in student_classes
+        ]
 
         query = (
             select(
@@ -978,18 +1144,37 @@ class TimetableService:
                 TeacherProfile.teacher_name.label("teacher"),
             )
             .select_from(ClassTimeTable)
-            .join(WeekDay, WeekDay.id == ClassTimeTable.week_day_id)
-            .join(TimeSlot, TimeSlot.id == ClassTimeTable.time_slot_id)
-            .join(ClassSubject, ClassSubject.id == ClassTimeTable.class_subject_id)
-            .join(Subject, Subject.id == ClassSubject.subject_id)
+            .join(
+                WeekDay,
+                WeekDay.id == ClassTimeTable.week_day_id,
+            )
+            .join(
+                TimeSlot,
+                TimeSlot.id == ClassTimeTable.time_slot_id,
+            )
+            .join(
+                ClassSubject,
+                ClassSubject.id
+                == ClassTimeTable.class_subject_id,
+            )
+            .join(
+                Subject,
+                Subject.id == ClassSubject.subject_id,
+            )
             .join(
                 TeacherSubject,
-                TeacherSubject.id == ClassTimeTable.teacher_subject_id,
+                TeacherSubject.id
+                == ClassTimeTable.teacher_subject_id,
             )
-            .join(TeacherProfile, TeacherProfile.user_id == TeacherSubject.teacher_id)
+            .join(
+                TeacherProfile,
+                TeacherProfile.user_id
+                == TeacherSubject.teacher_id,
+            )
             .filter(
                 ClassTimeTable.is_active,
-                ClassTimeTable.academic_sessions_id == current_session_id,
+                ClassTimeTable.academic_sessions_id
+                == current_session_id,
                 ClassTimeTable.classroom_id.in_(classroom_ids),
             )
             .order_by(
@@ -1023,29 +1208,40 @@ class TimetableService:
         db: AsyncSession,
         teacher_user_id: int,
     ) -> list[dict[str, Any]]:
-        current_session_id = await TimetableService._get_current_academic_session_id(db)
+        current_session_id = (
+            await TimetableService._get_current_academic_session_id(db)
+        )
 
         teacher = await db.scalar(
-            select(TeacherProfile).filter_by(user_id=teacher_user_id),
+            select(TeacherProfile).filter_by(
+                user_id=teacher_user_id
+            ),
         )
         if not teacher:
-            raise ResourceNotFoundException("Teacher profile not found")
+            raise ResourceNotFoundException(
+                "Teacher profile not found"
+            )
 
         result = await db.execute(
             select(TeacherSubject.id).filter(
                 TeacherSubject.teacher_id == teacher_user_id,
-                TeacherSubject.academic_sessions_id == current_session_id,
+                TeacherSubject.academic_sessions_id
+                == current_session_id,
                 TeacherSubject.is_active,
             ),
         )
-        allowed_teacher_subject_ids = [x[0] for x in result.all()]
+        allowed_teacher_subject_ids = [
+            x[0] for x in result.all()
+        ]
         if not allowed_teacher_subject_ids:
             return []
 
         query = (
             select(
                 ClassRoom.id.label("classroom_id"),
-                ClassRoom.display_name.label("classroom_display_name"),
+                ClassRoom.display_name.label(
+                    "classroom_display_name"
+                ),
                 ClassSubject.id.label("class_subject_id"),
                 Subject.subject_name.label("subject"),
                 WeekDay.id.label("week_day_id"),
@@ -1055,15 +1251,34 @@ class TimetableService:
                 TimeSlot.end_time.label("end_time"),
             )
             .select_from(ClassTimeTable)
-            .join(ClassRoom, ClassRoom.id == ClassTimeTable.classroom_id)
-            .join(ClassSubject, ClassSubject.id == ClassTimeTable.class_subject_id)
-            .join(Subject, Subject.id == ClassSubject.subject_id)
-            .join(WeekDay, WeekDay.id == ClassTimeTable.week_day_id)
-            .join(TimeSlot, TimeSlot.id == ClassTimeTable.time_slot_id)
+            .join(
+                ClassRoom,
+                ClassRoom.id == ClassTimeTable.classroom_id,
+            )
+            .join(
+                ClassSubject,
+                ClassSubject.id
+                == ClassTimeTable.class_subject_id,
+            )
+            .join(
+                Subject,
+                Subject.id == ClassSubject.subject_id,
+            )
+            .join(
+                WeekDay,
+                WeekDay.id == ClassTimeTable.week_day_id,
+            )
+            .join(
+                TimeSlot,
+                TimeSlot.id == ClassTimeTable.time_slot_id,
+            )
             .filter(
                 ClassTimeTable.is_active,
-                ClassTimeTable.academic_sessions_id == current_session_id,
-                ClassTimeTable.teacher_subject_id.in_(allowed_teacher_subject_ids),
+                ClassTimeTable.academic_sessions_id
+                == current_session_id,
+                ClassTimeTable.teacher_subject_id.in_(
+                    allowed_teacher_subject_ids
+                ),
             )
             .order_by(
                 ClassRoom.class_name.asc(),
@@ -1073,15 +1288,17 @@ class TimetableService:
         )
         rows = (await db.execute(query)).all()
         # NOTE: legacy builds this same result as
-        # `{"class": r.class_, "subject": ..., ...}` where the SQLAlchemy Row
-        # label is "class" — `r.class_` doesn't exist on the Row (the label
-        # is "class", not "class_"), so that line raises AttributeError on
-        # every real call, and the endpoint is broken in the old codebase.
-        # Since there's no documented intended alternate behavior to
-        # preserve (this isn't a business rule, it's a typo), we fix it here
-        # by reading the row correctly, and use TeacherTimetableItemResponse's
+        # `{"class": r.class_, "subject": ..., ...}` where the SQLAlchemy
+        # Row label is "class" -- `r.class_` doesn't exist on the Row
+        # (the label is "class", not "class_"), so that line raises
+        # AttributeError on every real call, and the endpoint is broken
+        # in the old codebase. Since there's no documented intended
+        # alternate behavior to preserve (this isn't a business rule,
+        # it's a typo), we fix it here by reading the row correctly,
+        # and use TeacherTimetableItemResponse's
         # `class_`-aliased-to-`"class"` field so the JSON shape (`day`,
-        # `subject`, `time`, `class`) still matches what the schema promised.
+        # `subject`, `time`, `class`) still matches what the schema
+        # promised.
         return [
             {
                 "class_": r.classroom_display_name,
@@ -1103,7 +1320,23 @@ class TimetableService:
     async def create_availability(
         db: AsyncSession,
         data: dict[str, Any],
+        current_user=None,
     ) -> TeacherAvailability:
+        if (
+            current_user is not None
+            and current_user.role == UserRole.TEACHER
+        ):
+            from src.domain.operations.models import TeacherSubject
+
+            ts = await db.get(
+                TeacherSubject,
+                data.get("teacher_subject_id"),
+            )
+            if ts and ts.user_id != current_user.id:
+                raise AuthorizationException(
+                    "You can only create availability "
+                    "for your own subjects"
+                )
         return await availability_crud.create(db, data)
 
     @staticmethod
@@ -1114,8 +1347,10 @@ class TimetableService:
     ) -> list[TeacherAvailability]:
         result = await db.execute(
             select(TeacherAvailability).filter(
-                TeacherAvailability.teacher_subject_id == teacher_subject_id,
-                TeacherAvailability.academic_sessions_id == session_id,
+                TeacherAvailability.teacher_subject_id
+                == teacher_subject_id,
+                TeacherAvailability.academic_sessions_id
+                == session_id,
                 TeacherAvailability.is_active,
             ),
         )
@@ -1126,16 +1361,33 @@ class TimetableService:
         db: AsyncSession,
         availability_id: int,
         update_fields: dict[str, Any],
+        current_user=None,
     ) -> TeacherAvailability | None:
         entry = await availability_crud.get(db, availability_id)
         if not entry:
             return None
-        return await availability_crud.update(db, availability_id, update_fields)
+        if (
+            current_user is not None
+            and current_user.role == UserRole.TEACHER
+        ):
+            from src.domain.operations.models import TeacherSubject
+
+            ts = await db.get(
+                TeacherSubject, entry.teacher_subject_id
+            )
+            if ts and ts.user_id != current_user.id:
+                raise AuthorizationException(
+                    "You can only modify your own availability"
+                )
+        return await availability_crud.update(
+            db, availability_id, update_fields
+        )
 
     @staticmethod
     async def deactivate_availability(
         db: AsyncSession,
         availability_id: int,
+        current_user=None,
     ) -> TeacherAvailability | None:
         """Was missing -- a teacher could mark themselves available/update
         it, but never withdraw an availability slot entirely.
@@ -1143,4 +1395,19 @@ class TimetableService:
         entry = await availability_crud.get(db, availability_id)
         if not entry:
             return None
-        return await availability_crud.update(db, availability_id, {"is_active": False})
+        if (
+            current_user is not None
+            and current_user.role == UserRole.TEACHER
+        ):
+            from src.domain.operations.models import TeacherSubject
+
+            ts = await db.get(
+                TeacherSubject, entry.teacher_subject_id
+            )
+            if ts and ts.user_id != current_user.id:
+                raise AuthorizationException(
+                    "You can only modify your own availability"
+                )
+        return await availability_crud.update(
+            db, availability_id, {"is_active": False}
+        )

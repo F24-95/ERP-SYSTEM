@@ -38,7 +38,7 @@ class User(Base, UUIDMixin, TimestampMixin, ActiveMixin, AuditMixin, SoftDeleteM
 
     # Login credentials
     email = Column(String(255), unique=True, nullable=False, index=True)
-    phone = Column(String(20), nullable=False, index=True)
+    phone = Column(String(20), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     role = Column(SAEnum(UserRole), nullable=False, index=True)
     # Was missing entirely -- core/email.py already has send_otp_email /
@@ -56,6 +56,7 @@ class User(Base, UUIDMixin, TimestampMixin, ActiveMixin, AuditMixin, SoftDeleteM
     last_login = Column(DateTime, nullable=True)
     login_count = Column(Integer, default=0, nullable=False)
     failed_login_count = Column(Integer, default=0, nullable=False)
+    locked_until = Column(DateTime, nullable=True)
 
     __table_args__ = (
         Index("idx_user_role_active", "role", "is_active"),

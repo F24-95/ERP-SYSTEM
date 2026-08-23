@@ -51,7 +51,9 @@ async def login(client: AsyncClient, email: str, password: str) -> dict:
 
 
 async def get_auth_headers(
-    client: AsyncClient, email: str, password: str
+    client: AsyncClient,
+    email: str,
+    password: str,
 ) -> dict[str, str]:
     data = await login(client, email, password)
     return {"Authorization": f"Bearer {data['access_token']}"}

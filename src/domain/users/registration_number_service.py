@@ -25,7 +25,10 @@ class RegistrationNumberService:
     MAX_ATTEMPTS = 5
 
     @staticmethod
-    async def _next_sequence_for_year(session: AsyncSession, year: int) -> int:
+    async def _next_sequence_for_year(
+        session: AsyncSession,
+        year: int,
+    ) -> int:
         prefix = f"REG-{year}-"
         query = select(func.count(StudentProfile.id)).where(
             StudentProfile.registration_number.like(f"{prefix}%"),
@@ -51,7 +54,10 @@ class RegistrationNumberService:
         last_error = None
 
         for attempt in range(cls.MAX_ATTEMPTS):
-            sequence = await cls._next_sequence_for_year(session, year) + attempt
+            sequence = await cls._next_sequence_for_year(
+                session,
+                year,
+            ) + attempt
             candidate = generate_registration_number(year, sequence)
 
             student.registration_number = candidate
@@ -72,7 +78,10 @@ class RegistrationNumberService:
         ) from last_error
 
     @classmethod
-    async def backfill_missing_registration_numbers(cls, session: AsyncSession) -> dict:
+    async def backfill_missing_registration_numbers(
+        cls,
+        session: AsyncSession,
+    ) -> dict:
         """Assigns registration numbers to every StudentProfile that
         doesn't have one yet. Safe to call repeatedly — students who
         already have one are skipped.
@@ -86,13 +95,18 @@ class RegistrationNumberService:
         generated, failed = 0, 0
         for student in students:
             try:
-                await cls.generate_for_student(session, student, flush=True)
+                await cls.generate_for_student(
+                    session,
+                    student,
+                    flush=True,
+                )
                 generated += 1
             except Exception:
                 await session.rollback()
                 failed += 1
                 logger.warning(
-                    f"Failed to backfill registration_number for student id={student.id}",
+                    f"Failed to backfill registration_number for "
+                    f"student id={student.id}",
                 )
 
         return {

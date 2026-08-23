@@ -19,11 +19,17 @@ logger = get_logger(__name__)
 
 
 class ExamService:
+
     @staticmethod
-    async def _get_exam_or_raise(db: AsyncSession, exam_id: int) -> Exam:
+    async def _get_exam_or_raise(
+        db: AsyncSession,
+        exam_id: int,
+    ) -> Exam:
         exam = await exam_crud.get(db, exam_id)
         if not exam:
-            raise ResourceNotFoundException(f"Exam with id={exam_id} not found")
+            raise ResourceNotFoundException(
+                f"Exam with id={exam_id} not found",
+            )
         return exam
 
     @staticmethod
@@ -32,7 +38,10 @@ class ExamService:
         the legacy router's inline `exam.created_by != current_user.id and
         current_user.role != UserRole.ADMIN` check.
         """
-        if exam.created_by != current_user.id and current_user.role != UserRole.ADMIN:
+        if (
+            exam.created_by != current_user.id
+            and current_user.role != UserRole.ADMIN
+        ):
             raise AuthorizationException("You can only modify your own exams")
 
     @staticmethod
@@ -63,7 +72,9 @@ class ExamService:
             db,
             {**exam_data.model_dump(), "created_by": current_user.id},
         )
-        logger.info(f"Exam created: {exam.exam_id} by user={current_user.id}")
+        logger.info(
+            f"Exam created: {exam.exam_id} by user={current_user.id}",
+        )
         return exam
 
     @staticmethod
@@ -81,7 +92,9 @@ class ExamService:
 
         # Teachers only see exams for subjects they're assigned to.
         if current_user.role == UserRole.TEACHER:
-            ts_ids = select(TeacherSubject.id).filter_by(teacher_id=current_user.id)
+            ts_ids = select(TeacherSubject.id).filter_by(
+                teacher_id=current_user.id,
+            )
             query = query.filter(Exam.teacher_subject_id.in_(ts_ids))
         elif current_user.role == UserRole.STUDENT:
             # Was previously unfiltered for students -- any logged-in
@@ -112,11 +125,17 @@ class ExamService:
         updates = exam_data.model_dump(exclude_unset=True)
         updates["updated_by"] = current_user.id
         updated = await exam_crud.update(db, exam_id, updates)
-        logger.info(f"Exam updated: {updated.exam_id} by user={current_user.id}")
+        logger.info(
+            f"Exam updated: {updated.exam_id} by user={current_user.id}",
+        )
         return updated
 
     @staticmethod
-    async def delete_exam(db: AsyncSession, exam_id: int, current_user: User) -> None:
+    async def delete_exam(
+        db: AsyncSession,
+        exam_id: int,
+        current_user: User,
+    ) -> None:
         exam = await ExamService._get_exam_or_raise(db, exam_id)
         ExamService._check_ownership(exam, current_user)
 
@@ -127,7 +146,9 @@ class ExamService:
             exam_id,
             {"is_active": False, "deleted_by": current_user.id},
         )
-        logger.info(f"Exam deleted: {exam.exam_id} by user={current_user.id}")
+        logger.info(
+            f"Exam deleted: {exam.exam_id} by user={current_user.id}",
+        )
 
     @staticmethod
     async def upload_exam_results(
@@ -151,7 +172,9 @@ class ExamService:
                 data = item.model_dump(exclude={"student_class_id"})
                 data["checked_at"] = datetime.utcnow()
                 data["checked_by"] = current_user.id
-                updated = await exam_result_crud.update(db, existing.id, data)
+                updated = await exam_result_crud.update(
+                    db, existing.id, data,
+                )
                 uploaded.append(updated)
             else:
                 data = item.model_dump()
@@ -163,7 +186,9 @@ class ExamService:
 
         exam.result_uploaded = len(uploaded)
         await db.flush()
-        logger.info(f"Uploaded {len(uploaded)} results for exam={exam.exam_id}")
+        logger.info(
+            f"Uploaded {len(uploaded)} results for exam={exam.exam_id}",
+        )
         return uploaded
 
     @staticmethod
@@ -201,14 +226,19 @@ class ExamService:
         if current_user.role == UserRole.STUDENT:
             student_class_ids = (
                 await db.scalars(
-                    select(StudentClass.id).filter_by(student_id=current_user.id),
+                    select(StudentClass.id).filter_by(
+                        student_id=current_user.id,
+                    ),
                 )
             ).all()
             all_results = await exam_result_crud.get_many(
                 db,
                 filters={"exam_id": exam_id},
             )
-            return [r for r in all_results if r.student_class_id in student_class_ids]
+            return [
+                r for r in all_results
+                if r.student_class_id in student_class_ids
+            ]
 
         raise AuthorizationException("Permission denied")
 
@@ -241,7 +271,9 @@ class ExamService:
                 ),
             )
             if not owns:
-                raise AuthorizationException("You can only view your own result")
+                raise AuthorizationException(
+                    "You can only view your own result",
+                )
             return result
         raise AuthorizationException("Permission denied")
 
@@ -267,4 +299,6 @@ class ExamService:
         elif current_user.role != UserRole.ADMIN:
             raise AuthorizationException("Permission denied")
         await exam_result_crud.delete(db, result_id)
-        logger.info(f"Exam result deleted: id={result_id} by user={current_user.id}")
+        logger.info(
+            f"Exam result deleted: id={result_id} by user={current_user.id}",
+        )

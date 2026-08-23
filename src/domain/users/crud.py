@@ -2,15 +2,33 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.base_crud import AsyncBaseCRUD
-from src.domain.users.models import AdminProfile, StudentProfile, TeacherProfile, User
+from src.domain.users.models import (
+    AdminProfile,
+    StudentProfile,
+    TeacherProfile,
+    User,
+)
 
 
 class UserCRUD(AsyncBaseCRUD[User]):
     def __init__(self):
         super().__init__(User)
 
-    async def get_by_email(self, session: AsyncSession, email: str) -> User | None:
+    async def get_by_email(
+        self,
+        session: AsyncSession,
+        email: str,
+    ) -> User | None:
         query = select(self.model).filter_by(email=email, is_deleted=False)
+        result = await session.execute(query)
+        return result.scalars().first()
+
+    async def get_by_phone(
+        self,
+        session: AsyncSession,
+        phone: str,
+    ) -> User | None:
+        query = select(self.model).filter_by(phone=phone, is_deleted=False)
         result = await session.execute(query)
         return result.scalars().first()
 
@@ -19,7 +37,10 @@ class UserCRUD(AsyncBaseCRUD[User]):
         session: AsyncSession,
         public_id: str,
     ) -> User | None:
-        query = select(self.model).filter_by(public_id=public_id, is_deleted=False)
+        query = select(self.model).filter_by(
+            public_id=public_id,
+            is_deleted=False,
+        )
         result = await session.execute(query)
         return result.scalars().first()
 

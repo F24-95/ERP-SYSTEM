@@ -12,6 +12,7 @@ Ported verbatim (same columns, same semantics) from the legacy
 """
 
 from sqlalchemy import Column, Index, Integer, LargeBinary, String
+from sqlalchemy.orm import deferred
 
 from src.database.connection import Base
 from src.domain.common.mixins import ActiveMixin, AuditMixin, TimestampMixin
@@ -31,6 +32,6 @@ class Attachment(Base, TimestampMixin, ActiveMixin, AuditMixin):
     mime_type = Column(String(100), nullable=False)
     file_size = Column(Integer, nullable=False)
 
-    file_data = Column(LargeBinary, nullable=False)
+    file_data = deferred(Column(LargeBinary, nullable=False))
 
     __table_args__ = (Index("idx_attachment_entity", "entity_type", "entity_id"),)

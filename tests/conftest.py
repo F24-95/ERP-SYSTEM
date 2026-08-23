@@ -4,32 +4,49 @@ from collections.abc import AsyncGenerator
 from datetime import date, time
 from typing import Any
 
+from dotenv import load_dotenv
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
+load_dotenv()
+
+TEST_DATABASE_URL = os.getenv(
+    "TEST_DATABASE_URL",
+    os.getenv(
+        "DATABASE_URL",
+        "postgresql+asyncpg://postgres:postgres@localhost:5432/erp_test",
+    ),
+)
+if TEST_DATABASE_URL.startswith("postgresql://"):
+    TEST_DATABASE_URL = TEST_DATABASE_URL.replace(
+        "postgresql://", "postgresql+asyncpg://", 1
+    )
+
 os.environ.setdefault(
     "DATABASE_URL",
-    "postgresql://postgres:Faizan9517@localhost:5432/faizan20_test",
+    TEST_DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://", 1),
 )
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-testing-only")
 os.environ.setdefault("AUTO_CREATE_TABLES", "false")
 
-from src.core.security import create_access_token, hash_password
-from src.database.connection import Base, get_db
-from src.main import create_app
+from src.core.security import create_access_token, hash_password  # noqa: E402
+from src.database.connection import Base, get_db  # noqa: E402
+from src.main import create_app  # noqa: E402
 
-from src.core.enums import UserRole
-from src.domain.operations.models import TimeSlot, WeekDay
-from src.domain.academics.models import AcademicSession, ClassRoom
-from src.domain.curriculum.models import Subject
-from src.domain.users.models import AdminProfile, StudentProfile, TeacherProfile, User
-
-TEST_DATABASE_URL = (
-    "postgresql+asyncpg://postgres:Faizan9517@localhost:5432/faizan20_test"
+from src.core.enums import UserRole  # noqa: E402
+from src.domain.operations.models import TimeSlot, WeekDay  # noqa: E402
+from src.domain.academics.models import AcademicSession, ClassRoom  # noqa: E402
+from src.domain.curriculum.models import Subject  # noqa: E402
+from src.domain.users.models import (  # noqa: E402
+    AdminProfile,
+    StudentProfile,
+    TeacherProfile,
+    User,
 )
+
 DEFAULT_PASSWORD = "TestPass123!"
 
 
@@ -58,6 +75,7 @@ async def engine():
             ("SUN", "Sunday", 7),
         ]:
             session.add(WeekDay(day_code=code, day_name=name, display_order=order))
+
         for code, name, start, end, dur, order, is_break in [
             ("SLOT01", "Period 1", time(8, 0), time(8, 45), 45, 1, False),
             ("SLOT02", "Period 2", time(8, 45), time(9, 30), 45, 2, False),
@@ -125,9 +143,12 @@ async def _create_user(
     email: str,
     role: UserRole,
     password: str = DEFAULT_PASSWORD,
-    phone: str = "9876543210",
+    phone: str | None = None,
     **extra: Any,
 ) -> User:
+    if phone is None:
+        import secrets
+        phone = f"98{secrets.randbelow(100000000):08d}"
     user = User(
         email=email,
         phone=phone,
@@ -142,7 +163,9 @@ async def _create_user(
 
 
 async def _create_admin_profile(
-    session: AsyncSession, user: User, admin_name: str = "Test Admin"
+    session: AsyncSession,
+    user: User,
+    admin_name: str = "Test Admin",
 ) -> AdminProfile:
     profile = AdminProfile(user_id=user.id, admin_name=admin_name)
     session.add(profile)
@@ -151,7 +174,9 @@ async def _create_admin_profile(
 
 
 async def _create_teacher_profile(
-    session: AsyncSession, user: User, teacher_name: str = "Test Teacher"
+    session: AsyncSession,
+    user: User,
+    teacher_name: str = "Test Teacher",
 ) -> TeacherProfile:
     profile = TeacherProfile(user_id=user.id, teacher_name=teacher_name)
     session.add(profile)
@@ -160,7 +185,9 @@ async def _create_teacher_profile(
 
 
 async def _create_student_profile(
-    session: AsyncSession, user: User, student_name: str = "Test Student"
+    session: AsyncSession,
+    user: User,
+    student_name: str = "Test Student",
 ) -> StudentProfile:
     profile = StudentProfile(user_id=user.id, student_name=student_name)
     session.add(profile)
@@ -170,7 +197,9 @@ async def _create_student_profile(
 
 @pytest_asyncio.fixture
 async def admin_user(db_session: AsyncSession) -> User:
-    user = await _create_user(db_session, "admin@test.com", UserRole.ADMIN)
+    user = await _create_user(
+        db_session, "admin@test.com", UserRole.ADMIN, phone="9876543210"
+    )
     await _create_admin_profile(db_session, user)
     user.admin_id = "ADM00001"
     await db_session.flush()
@@ -179,7 +208,9 @@ async def admin_user(db_session: AsyncSession) -> User:
 
 @pytest_asyncio.fixture
 async def teacher_user(db_session: AsyncSession) -> User:
-    user = await _create_user(db_session, "teacher@test.com", UserRole.TEACHER)
+    user = await _create_user(
+        db_session, "teacher@test.com", UserRole.TEACHER, phone="9876543211"
+    )
     await _create_teacher_profile(db_session, user)
     user.teacher_id = "TEA00001"
     await db_session.flush()
@@ -188,7 +219,9 @@ async def teacher_user(db_session: AsyncSession) -> User:
 
 @pytest_asyncio.fixture
 async def student_user(db_session: AsyncSession) -> User:
-    user = await _create_user(db_session, "student@test.com", UserRole.STUDENT)
+    user = await _create_user(
+        db_session, "student@test.com", UserRole.STUDENT, phone="9876543212"
+    )
     await _create_student_profile(db_session, user)
     user.student_id = "STU00001"
     await db_session.flush()
@@ -197,7 +230,9 @@ async def student_user(db_session: AsyncSession) -> User:
 
 @pytest_asyncio.fixture
 async def parent_user(db_session: AsyncSession) -> User:
-    user = await _create_user(db_session, "parent@test.com", UserRole.PARENT)
+    user = await _create_user(
+        db_session, "parent@test.com", UserRole.PARENT, phone="9876543213"
+    )
     await db_session.flush()
     return user
 
@@ -242,7 +277,8 @@ async def student_headers(student_token: str) -> dict[str, str]:
 
 @pytest_asyncio.fixture
 async def admin_client(
-    client: AsyncClient, admin_headers: dict[str, str]
+    client: AsyncClient,
+    admin_headers: dict[str, str],
 ) -> AsyncClient:
     client.headers.update(admin_headers)
     return client
@@ -250,7 +286,8 @@ async def admin_client(
 
 @pytest_asyncio.fixture
 async def teacher_client(
-    client: AsyncClient, teacher_headers: dict[str, str]
+    client: AsyncClient,
+    teacher_headers: dict[str, str],
 ) -> AsyncClient:
     client.headers.update(teacher_headers)
     return client
@@ -258,7 +295,8 @@ async def teacher_client(
 
 @pytest_asyncio.fixture
 async def student_client(
-    client: AsyncClient, student_headers: dict[str, str]
+    client: AsyncClient,
+    student_headers: dict[str, str],
 ) -> AsyncClient:
     client.headers.update(student_headers)
     return client
@@ -282,7 +320,8 @@ async def academic_session(db_session: AsyncSession) -> AcademicSession:
 
 @pytest_asyncio.fixture
 async def classroom(
-    academic_session: AcademicSession, db_session: AsyncSession
+    academic_session: AcademicSession,
+    db_session: AsyncSession,
 ) -> ClassRoom:
     cls = ClassRoom(
         class_code="CLS-10",

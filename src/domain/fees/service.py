@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -59,11 +60,7 @@ class FeeService:
         fee_id: str,
         current_user: User,
     ) -> Fee:
-        """Was previously admin-only at the router level with no ownership
-        concept at all, so there was no way for a student to ever fetch
-        even their own fee record by id. Admin sees any fee; a student may
-        only fetch a fee that belongs to one of their own enrollments.
-        """
+        """Fetch fee record verifying ownership if requested by a student."""
         fee = await FeeService._get_by_fee_id_or_raise(db, fee_id)
         if current_user.role == UserRole.ADMIN:
             return fee
@@ -81,11 +78,7 @@ class FeeService:
 
     @staticmethod
     async def get_my_fees(db: AsyncSession, current_user: User) -> list[Fee]:
-        """Was missing entirely -- the whole /fees router required ADMIN
-        for every route, so a student/parent had no way to see their own
-        dues at all (only office staff could look anything up, and only by
-        an internal student_class_id they'd have no way to know).
-        """
+        """Fetch all fee records for the logged-in student."""
         student_class_ids = (
             await db.scalars(
                 select(StudentClass.id).filter_by(student_id=current_user.id),
@@ -131,24 +124,32 @@ class FeeService:
         payment: FeePayment,
         user_id: int,
     ):
-        fee = await fee_crud.get_by_filters(db, fee_id=fee_id)
+        """Record payment with atomic row locking (with_for_update) and exact Decimal arithmetic."""
+        stmt = select(Fee).filter_by(fee_id=fee_id).with_for_update()
+        fee = await db.scalar(stmt)
         if not fee:
             raise ResourceNotFoundException(f"Fee with fee_id={fee_id} not found")
-        fee = fee[0] if isinstance(fee, list) else fee
-        outstanding = float(
-            fee.total_amount + fee.fine_amount - fee.discount_amount - fee.paid_amount,
-        )
-        if float(payment.amount) > outstanding:
+
+        total_amount = Decimal(str(fee.total_amount or 0))
+        fine_amount = Decimal(str(fee.fine_amount or 0))
+        discount_amount = Decimal(str(fee.discount_amount or 0))
+        paid_amount = Decimal(str(fee.paid_amount or 0))
+        payment_amount = Decimal(str(payment.amount))
+
+        total_due = total_amount + fine_amount - discount_amount
+        outstanding = total_due - paid_amount
+
+        if payment_amount <= Decimal("0"):
+            raise BusinessLogicException("Payment amount must be greater than zero")
+
+        if payment_amount > outstanding:
             raise BusinessLogicException(
-                f"Payment {payment.amount} exceeds outstanding {outstanding}",
+                f"Payment {payment_amount} exceeds outstanding {outstanding}",
             )
-        new_paid = float(fee.paid_amount) + float(payment.amount)
-        status = (
-            "PAID"
-            if new_paid
-            >= float(fee.total_amount + fee.fine_amount - fee.discount_amount)
-            else "PARTIAL"
-        )
+
+        new_paid = paid_amount + payment_amount
+        status = "PAID" if new_paid >= total_due else "PARTIAL"
+
         updates = {
             "paid_amount": new_paid,
             "status": status,
@@ -157,6 +158,7 @@ class FeeService:
         }
         if status == "PAID":
             updates["paid_date"] = date.today()
+
         updated = await fee_crud.update(db, fee.id, updates)
         logger.info(f"Payment recorded for {fee_id}: {payment.amount}, status={status}")
         return updated

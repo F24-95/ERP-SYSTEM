@@ -3,6 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import get_current_user
 from src.database.connection import get_db
+from src.core.enums import UserRole
+from src.core.exceptions import AuthorizationException
 from src.domain.users.models import User
 from src.domain.users.schemas import UserResponse, UserUpdate
 from src.domain.users.service import UserService
@@ -64,5 +66,12 @@ async def get_user(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get user by public ID. Requires authentication."""
-    return await UserService.get_user(db, user_id)
+    """Get user by public ID. Allowed for Admin or the user themselves."""
+    target_user = await UserService.get_user(db, user_id)
+    if (
+        current_user.role != UserRole.ADMIN
+        and current_user.id != target_user.id
+        and current_user.public_id != user_id
+    ):
+        raise AuthorizationException("You are not authorized to view this user's profile")
+    return target_user

@@ -37,7 +37,11 @@ class AdminService:
         if existing:
             raise BusinessLogicException("Email already registered")
 
-        # We also ideally need to check phone uniqueness, skipping for brevity but assuming user_crud covers it
+        # Check if phone exists
+        if user_data.phone:
+            existing_phone = await user_crud.get_by_phone(session, user_data.phone.strip())
+            if existing_phone:
+                raise BusinessLogicException("Phone number already registered")
 
         user_dict = user_data.model_dump(exclude={"password"})
         user_dict["password_hash"] = hash_password(user_data.password)

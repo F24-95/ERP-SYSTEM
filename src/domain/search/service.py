@@ -12,7 +12,11 @@ from src.domain.search.similarity_engine import (
     FUZZY_CANDIDATE_POOL,
     rank_candidates,
 )
-from src.domain.search.text_utils import QueryType, build_search_text, normalize_text
+from src.domain.search.text_utils import (
+    QueryType,
+    build_search_text,
+    normalize_text,
+)
 from src.domain.search.validator import SearchQueryValidator
 from src.domain.users.models import StudentProfile, TeacherProfile, User
 

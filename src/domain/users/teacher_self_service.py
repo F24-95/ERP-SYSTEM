@@ -16,7 +16,10 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.exceptions import AuthorizationException, ResourceNotFoundException
+from src.core.exceptions import (
+    AuthorizationException,
+    ResourceNotFoundException,
+)
 from src.core.logger import get_logger
 from src.domain.academics.models import ClassRoom
 from src.domain.assignments.models import Assignment
@@ -33,14 +36,22 @@ logger = get_logger(__name__)
 
 class TeacherSelfService:
     @staticmethod
-    async def _get_profile(db: AsyncSession, user_id: int) -> TeacherProfile:
-        profile = await db.scalar(select(TeacherProfile).filter_by(user_id=user_id))
+    async def _get_profile(
+        db: AsyncSession,
+        user_id: int,
+    ) -> TeacherProfile:
+        profile = await db.scalar(
+            select(TeacherProfile).filter_by(user_id=user_id),
+        )
         if not profile:
             raise ResourceNotFoundException("Teacher profile not found")
         return profile
 
     @staticmethod
-    async def get_profile(db: AsyncSession, user_id: int) -> TeacherProfile:
+    async def get_profile(
+        db: AsyncSession,
+        user_id: int,
+    ) -> TeacherProfile:
         return await TeacherSelfService._get_profile(db, user_id)
 
     @staticmethod
@@ -66,12 +77,17 @@ class TeacherSelfService:
 
         query = (
             select(ClassRoom)
-            .join(TeacherSubject, TeacherSubject.classroom_id == ClassRoom.id)
+            .join(
+                TeacherSubject,
+                TeacherSubject.classroom_id == ClassRoom.id,
+            )
             .filter(TeacherSubject.teacher_id == user_id)
             .distinct()
         )
         if academic_sessions_id:
-            query = query.filter(ClassRoom.academic_sessions_id == academic_sessions_id)
+            query = query.filter(
+                ClassRoom.academic_sessions_id == academic_sessions_id,
+            )
         return list((await db.execute(query)).scalars().all())
 
     @staticmethod
@@ -91,7 +107,9 @@ class TeacherSelfService:
             ),
         )
         if not owns:
-            raise AuthorizationException("You are not assigned to this class")
+            raise AuthorizationException(
+                "You are not assigned to this class",
+            )
 
         query = (
             select(StudentClass)
@@ -142,7 +160,9 @@ class TeacherSelfService:
     ) -> list[TeacherSubject]:
         await TeacherSelfService._get_profile(db, user_id)
 
-        query = select(TeacherSubject).filter(TeacherSubject.teacher_id == user_id)
+        query = select(TeacherSubject).filter(
+            TeacherSubject.teacher_id == user_id,
+        )
         if academic_sessions_id:
             query = query.filter(
                 TeacherSubject.academic_sessions_id == academic_sessions_id,
@@ -168,7 +188,9 @@ class TeacherSelfService:
             ),
         )
         if not daily_class:
-            raise ResourceNotFoundException("Class not found or not assigned to you")
+            raise ResourceNotFoundException(
+                "Class not found or not assigned to you",
+            )
 
         marked = 0
         for item in attendance_list:
@@ -189,7 +211,10 @@ class TeacherSelfService:
                 ),
             )
             fields = dict(
-                attendance_status=item.get("attendance_status", "Present"),
+                attendance_status=item.get(
+                    "attendance_status",
+                    "Present",
+                ),
                 is_late=item.get("is_late", False),
                 late_minutes=item.get("late_minutes", 0),
                 remarks=item.get("remarks"),
@@ -220,7 +245,10 @@ class TeacherSelfService:
             if item.get("student_class_id")
         }
         for student_class_id in marked_ids:
-            await DailyClassService.recalculate_attendance(db, student_class_id)
+            await DailyClassService.recalculate_attendance(
+                db,
+                student_class_id,
+            )
 
         return {
             "success": True,
@@ -250,14 +278,21 @@ class TeacherSelfService:
                 Assignment.academic_sessions_id == academic_sessions_id,
             )
         if classroom_id:
-            query = query.filter(Assignment.classroom_id == classroom_id)
+            query = query.filter(
+                Assignment.classroom_id == classroom_id,
+            )
         if status_filter:
-            query = query.filter(Assignment.status == status_filter)
+            query = query.filter(
+                Assignment.status == status_filter,
+            )
         query = query.order_by(Assignment.created_at.desc())
         return list((await db.execute(query)).scalars().all())
 
     @staticmethod
-    async def get_dashboard(db: AsyncSession, user_id: int) -> dict[str, Any]:
+    async def get_dashboard(
+        db: AsyncSession,
+        user_id: int,
+    ) -> dict[str, Any]:
         await TeacherSelfService._get_profile(db, user_id)
 
         total_classes = (
@@ -278,7 +313,8 @@ class TeacherSelfService:
                 .select_from(StudentClass)
                 .join(
                     TeacherSubject,
-                    TeacherSubject.classroom_id == StudentClass.classroom_id,
+                    TeacherSubject.classroom_id
+                    == StudentClass.classroom_id,
                 )
                 .filter(
                     TeacherSubject.teacher_id == user_id,
@@ -311,7 +347,9 @@ class TeacherSelfService:
                 select(func.count())
                 .select_from(DailyClass)
                 .filter(
-                    DailyClass.teacher_subject_id.in_(teacher_subject_ids),
+                    DailyClass.teacher_subject_id.in_(
+                        teacher_subject_ids,
+                    ),
                     DailyClass.class_date == date.today(),
                 ),
             )

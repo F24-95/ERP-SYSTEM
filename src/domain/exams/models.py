@@ -91,7 +91,10 @@ class Exam(Base, TimestampMixin, ActiveMixin, AuditMixin):
     )
 
     __table_args__ = (
-        UniqueConstraint("class_subject_id", "exam_name", "exam_date", name="uq_exam"),
+        UniqueConstraint(
+            "class_subject_id", "exam_name", "exam_date",
+            name="uq_exam",
+        ),
         Index("idx_exam_class", "classroom_id", "exam_date"),
         Index("idx_exam_teacher", "teacher_subject_id", "status"),
     )
@@ -101,7 +104,12 @@ class ExamResult(Base, TimestampMixin, ActiveMixin):
     __tablename__ = "exam_results"
 
     id = Column(Integer, primary_key=True)
-    exam_id = Column(Integer, ForeignKey("exams.id"), nullable=False, index=True)
+    exam_id = Column(
+        Integer,
+        ForeignKey("exams.id"),
+        nullable=False,
+        index=True,
+    )
     student_class_id = Column(
         Integer,
         ForeignKey("student_classes.id"),
@@ -123,7 +131,10 @@ class ExamResult(Base, TimestampMixin, ActiveMixin):
     student_class = relationship("StudentClass")
 
     __table_args__ = (
-        UniqueConstraint("exam_id", "student_class_id", name="uq_exam_result"),
+        UniqueConstraint(
+            "exam_id", "student_class_id",
+            name="uq_exam_result",
+        ),
         Index("idx_exam_result", "student_class_id", "exam_id"),
         Index("idx_exam_rank", "exam_id", "rank_in_class"),
     )

@@ -31,19 +31,22 @@ class ExamBase(BaseModel):
     publish_at: datetime | None = None
     completed_at: datetime | None = None
 
+    model_config = {"from_attributes": True}
+
 
 class ExamCreate(ExamBase):
-    # NOTE: exam_id is client-supplied here, matching the legacy behavior in
-    # app/routers/exam_routers.py::create_exam, which takes exam_data.exam_id
-    # verbatim rather than auto-generating it (unlike Fee, which the legacy
-    # model auto-generated via a column default). Preserved as-is even
-    # though it differs from the fee_id pattern — this is intentional
-    # parity with existing production behavior, not an oversight.
     exam_id: str = Field(..., max_length=30)
     academic_sessions_id: int
     classroom_id: int
     class_subject_id: int
     teacher_subject_id: int
+    total_marks: float = Field(..., gt=0)
+    passing_marks: float = Field(..., ge=0)
+    duration_minutes: int | None = Field(None, ge=1)
+
+    def model_post_init(self, __context) -> None:
+        if self.passing_marks > self.total_marks:
+            raise ValueError("passing_marks cannot exceed total_marks")
 
 
 class ExamUpdate(BaseModel):
@@ -53,10 +56,10 @@ class ExamUpdate(BaseModel):
     exam_date: date | None = None
     start_time: time | None = None
     end_time: time | None = None
-    duration_minutes: int | None = None
+    duration_minutes: int | None = Field(None, ge=1)
     room_number: str | None = Field(None, max_length=50)
-    total_marks: float | None = None
-    passing_marks: float | None = None
+    total_marks: float | None = Field(None, gt=0)
+    passing_marks: float | None = Field(None, ge=0)
     status: ExamStatus | None = None
     publish_at: datetime | None = None
     completed_at: datetime | None = None

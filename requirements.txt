@@ -20,10 +20,9 @@ email_validator==2.2.0
 
 # Auth / security
 bcrypt==4.1.3
-passlib==1.7.4
 python-jose==3.3.0
 python-multipart==0.0.9
-cryptography==49.0.0
+cryptography==42.0.8
 
 # Business logic utilities (ported from legacy — PDF/QR ID cards, fuzzy search)
 qrcode==7.4.2
@@ -33,7 +32,6 @@ rapidfuzz==3.14.5
 
 # Misc
 python-dotenv==1.0.1
-Jinja2==3.1.6
 
 # Dev tooling
 black==26.5.1

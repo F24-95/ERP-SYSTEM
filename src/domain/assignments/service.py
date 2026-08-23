@@ -78,9 +78,10 @@ class AssignmentService:
             return
         if current_user.role == UserRole.STUDENT:
             enrolled = await db.scalar(
-                select(StudentClass).filter_by(
-                    student_id=current_user.id,
-                    classroom_id=assignment.classroom_id,
+                select(StudentClass).filter(
+                    StudentClass.student_id == current_user.id,
+                    StudentClass.classroom_id == assignment.classroom_id,
+                    StudentClass.is_active == True,
                 ),
             )
             if not enrolled:

@@ -153,11 +153,11 @@ async def list_teacher_profiles(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     current_user: User = Depends(
-        require_role(UserRole.ADMIN, UserRole.TEACHER, UserRole.STUDENT),
+        require_role(UserRole.ADMIN, UserRole.TEACHER),
     ),
     db: AsyncSession = Depends(get_db),
 ):
-    """List all teacher profiles. Accessible by Admin, Teacher, and Student."""
+    """List all teacher profiles. Admin and Teacher only."""
     items, _total = await AdminService.list_teacher_profiles(db, skip=skip, limit=limit)
     return items
 
@@ -166,11 +166,11 @@ async def list_teacher_profiles(
 async def get_teacher_profile(
     profile_id: int,
     current_user: User = Depends(
-        require_role(UserRole.ADMIN, UserRole.TEACHER, UserRole.STUDENT),
+        require_role(UserRole.ADMIN, UserRole.TEACHER),
     ),
     db: AsyncSession = Depends(get_db),
 ):
-    """View any teacher profile. Accessible by Admin, Teacher, and Student."""
+    """View any teacher profile. Admin and Teacher only."""
     return await AdminService.get_teacher_profile(db, profile_id)
 
 
@@ -205,11 +205,11 @@ async def list_admin_profiles(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     current_user: User = Depends(
-        require_role(UserRole.ADMIN, UserRole.TEACHER, UserRole.STUDENT),
+        require_role(UserRole.ADMIN),
     ),
     db: AsyncSession = Depends(get_db),
 ):
-    """List all admin profiles. Accessible by Admin, Teacher, and Student."""
+    """List all admin profiles. Admin only."""
     items, _total = await AdminService.list_admin_profiles(db, skip=skip, limit=limit)
     return items
 
@@ -218,11 +218,11 @@ async def list_admin_profiles(
 async def get_admin_profile(
     profile_id: int,
     current_user: User = Depends(
-        require_role(UserRole.ADMIN, UserRole.TEACHER, UserRole.STUDENT),
+        require_role(UserRole.ADMIN),
     ),
     db: AsyncSession = Depends(get_db),
 ):
-    """View any admin profile. Accessible by Admin, Teacher, and Student."""
+    """View any admin profile. Admin only."""
     return await AdminService.get_admin_profile(db, profile_id)
 
 

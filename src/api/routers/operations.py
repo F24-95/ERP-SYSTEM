@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.dependencies import require_role
+from src.api.dependencies import get_current_user, require_role
 from src.core.enums import UserRole
 from src.database.connection import get_db
 from src.domain.operations.schemas import (
@@ -38,7 +38,10 @@ async def assign_teacher(
 
 
 @router.get("/teacher-assignments", response_model=list[TeacherSubjectResponse])
-async def list_teacher_assignments(db: AsyncSession = Depends(get_db)):
+async def list_teacher_assignments(
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     """List all teacher assignments."""
     return await EnrollmentService.list_teacher_assignments(db)
 
@@ -50,6 +53,7 @@ async def list_teacher_assignments(db: AsyncSession = Depends(get_db)):
 async def get_teacher_assignment(
     assignment_id: int,
     db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     """Get a single teacher assignment. Was missing entirely."""
     return await EnrollmentService.get_teacher_assignment(db, assignment_id)
@@ -103,7 +107,10 @@ async def enroll_student(
 
 
 @router.get("/student-enrollments", response_model=list[StudentClassResponse])
-async def list_student_enrollments(db: AsyncSession = Depends(get_db)):
+async def list_student_enrollments(
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     """List all student enrollments."""
     return await EnrollmentService.list_student_enrollments(db)
 
@@ -112,6 +119,7 @@ async def list_student_enrollments(db: AsyncSession = Depends(get_db)):
 async def get_student_enrollment(
     enrollment_id: int,
     db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     """Get a single student enrollment. Was missing entirely."""
     return await EnrollmentService.get_student_enrollment(db, enrollment_id)
@@ -188,7 +196,11 @@ async def promote_student(
     "/promote-student/{student_id}",
     response_model=list[StudentPromotionHistoryResponse],
 )
-async def get_promotion_history(student_id: int, db: AsyncSession = Depends(get_db)):
+async def get_promotion_history(
+    student_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     """Get a student's promotion history. Was missing entirely."""
     return await EnrollmentService.get_promotion_history(db, student_id)
 
